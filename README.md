@@ -1,4 +1,4 @@
-## CS787: Multimodal Generative Modeling – Project Guide
+## CS787 Course Project
 
 ### Purpose
 This repository hosts a learning-and-research implementation of a text-to-image foundational model built largely from scratch in PyTorch, followed by a materials inverse-design model (MatterGPT-style) targeting SLICES crystal notation and property conditioning.
