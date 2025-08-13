@@ -89,17 +89,17 @@ Operational guidance for CPU-only execution:
 
 ### Roadmap: Foundational Model to MatterGPT (CPU-only)
 
-Goal A: Foundational text-to-image system that takes a text prompt and generates an image, using classifier-free guidance (CFG). Early stage uses a CLIP-like setup; text encoded by transformers (initially BERT), image handled by U-Net or ResNet. Custom tokenizer will replace BERT tokenizer once stable. Generation via diffusion or GAN.
+The Goal is to have a foundational text-to-image system that takes a text prompt and generates an image, using classifier-free guidance (CFG). Early stage uses a CLIP-like setup; text encoded by transformers (initially BERT), image handled by U-Net or ResNet. Custom tokenizer will replace BERT tokenizer once stable. Generation via diffusion or GAN.
 
-Phase 1: Foundational Model Development (Months 1–8)
+Phase 1: Foundational Model Development
 
 1) Text Encoder and Tokenizer
 - Implement a Transformer-based text encoder; initialize with pre-trained BERT to reduce CPU training time.
 - Build a custom tokenizer; initially reuse BERT WordPiece, then iterate toward domain-tailored vocabulary. While the custom tokenizer targets SLICES long-term, keep it general enough for generic text prompts in this phase.
 - Optional: Train/fine-tune text embeddings to capture material descriptors and crystal-related attributes where applicable.
 
-2) Image/Structure Encoder
-- Implement U-Net and ResNet variants for image embeddings and generation backbones.
+2) Image Encoder
+- Implement U-Net or ResNet variants for image embeddings and generation backbones.
 - Start with lightweight configurations (e.g., base channels 32–64, depth 2–3) to be CPU friendly.
 - Optional: add a compact graph encoder prototype to experiment with crystal connectivity features for structure-as-image mappings.
 
@@ -112,34 +112,34 @@ Phase 1: Foundational Model Development (Months 1–8)
 - Integrate text conditioning via cross-attention or FiLM-like adapters; expose CFG scale to control prompt adherence.
 - Validate samples qualitatively (prompt-image coherence) and quantitatively (CLIPScore proxy, FID on small splits) at 64x64; grow later if feasible.
 
-Phase 2: Transition to MatterGPT
+Now, we transition to MatterGPT style.
 
-Goal B: Autoregressive transformer generator over SLICES for inverse design with multi-property conditioning; evaluated with CPU-based DFT pipelines.
+The Goal is to have a autoregressive transformer generator over SLICES for inverse design with multi-property conditioning; evaluated with CPU-based DFT pipelines.
 
-1) Text Encoder and Tokenizer Refinement (Months 9–10)
+1) Text Encoder and Tokenizer Refinement
 - Finalize a SLICES-compatible tokenizer and vocabulary for MatterGPT.
 - Fine-tune the text encoder on crystal-specific corpora to improve conditioning semantics.
 
-2) Dataset Preparation and SLICES Optimization (Months 9–11)
+2) Dataset Preparation and SLICES Optimization
 - Expand datasets with diverse, validated SLICES strings and associated property labels (formation energy, band gap, elastic moduli).
 - Implement strict validators and reversible round-trips for SLICES to ensure training data quality.
 
-3) Implement MatterGPT Transformer Decoder (Months 10–12)
+3) Implement MatterGPT Transformer Decoder
 - Develop a GPT-style decoder trained with next-token prediction over SLICES sequences.
 - Add property-conditioning tokens/embeddings to enable multi-objective inverse design.
 - Optimize for CPU: reduce model width/depth, tie embeddings, share projections, apply gradient checkpointing.
 
-4) Evaluation and Validation Pipeline (Months 11–12)
+4) Evaluation and Validation Pipeline
 - Define metrics for validity, uniqueness, novelty, and property accuracy; compute with CPU-only tooling.
 - Run tiered verification: fast ML property predictors first; DFT only for top-k promising candidates.
 - Integrate ASE-based flows for CPU DFT backends and cache all intermediate artifacts.
 
-5) Optimization and Deployment (Months 12–13)
+5) Optimization and Deployment
 - Tune schedules/hyperparameters for fidelity given CPU constraints (smaller batches, accumulation, longer but fewer runs).
 - Provide CLI/SDK to sample structures with property targets; support batch generation and filtering.
 - Prepare minimal UI/notebooks for exploration; document prompts, CFG scales, and sampling recipes.
 
-CPU tactics for Phase 2:
+CPU tactics:
 - Prefer nucleus/top-k sampling to reduce decode time; cache logits for repeated prompts.
 - Property heads trained with small MLPs; consider distillation from heavier models offline.
 - Active learning with small DFT budgets per cycle; prioritize diversity and uncertainty.
