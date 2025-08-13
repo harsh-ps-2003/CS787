@@ -16,13 +16,18 @@ This report documents the technical plan and architecture for:
 ### Foundational Text-to-Image
 
 #### Components
-- Text tokenizer/encoder:
-  - Custom tokenizer supporting BERT-style WordPiece.
-  - Transformer encoder (multi-head self-attention) producing a fixed-length embedding.
-  - Optional BERT initialization for weights and tokenization pipeline.
-- Image encoder/decoder:
-  - CLIP-like image encoder (ResNet/ViT) for multimodal contrastive training in early phases.
-  - U-Net generator (diffusion) or ResNet generator (GAN) for image synthesis.
+- Tokenizer (text → token IDs):
+  - Splits a prompt into subword tokens (initially BERT-like).
+  - Outputs: token IDs, attention mask, and special tokens.
+  - Swappable: later we can replace with a SLICES-aware tokenizer without changing downstream components.
+- Text embedder (token IDs → text features):
+  - Transformer encoder (multi-head self-attention) that produces:
+    - Per-token features (sequence of embeddings) for conditioning the generator (cross-attention or FiLM adapters).
+    - A pooled text embedding (single vector) summarizing the prompt for global alignment.
+  - Optional BERT initialization to bootstrap strong language features on CPU.
+- Image encoder (image → image embedding):
+  - Compact CLIP-like image encoder (ResNet/ViT) that outputs a global, normalized image embedding for alignment.
+  - Downstream generator backbone remains separate: U-Net (diffusion) or a ResNet-based generator (GAN) for image synthesis.
 - Conditioning and guidance:
   - Classifier-Free Guidance (CFG) for controllable adherence to text prompts.
   - Embedding adapters to fuse text features into the generator (cross-attention or FiLM-like conditioning).
@@ -50,11 +55,6 @@ This report documents the technical plan and architecture for:
 - Cache computations, track provenance, and store relaxed structures and computed properties.
 
 ---
-
-### Architecture and Hexagonal Boundaries
-- Domain: tokenizers, encoders/decoders, diffusion/GAN primitives, schedulers, property heads.
-- Application: trainers, evaluators, sampling pipelines, DFT orchestration.
-- Adapters: datasets, logging/metrics, file I/O, CLI/HTTP interfaces.
 
 ### Operational Considerations
 - Reproducibility: fixed seeds, config files, and run manifests.
@@ -143,3 +143,11 @@ CPU tactics for Phase 2:
 - Prefer nucleus/top-k sampling to reduce decode time; cache logits for repeated prompts.
 - Property heads trained with small MLPs; consider distillation from heavier models offline.
 - Active learning with small DFT budgets per cycle; prioritize diversity and uncertainty.
+
+### Data, Security, and Compliance
+- No secrets in repo; use environment variables for API keys and compute backends.
+- Validate and sanitize prompts and structure strings (SLICES) before training/eval.
+
+### Performance and Observability
+- Profile bottlenecks with PyTorch profiler and simple timers.
+- Export basic metrics (loss curves, FID, CLIPScore, property MSE) and keep GPU/memory logs for runs.
