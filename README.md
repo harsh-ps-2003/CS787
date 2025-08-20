@@ -1,25 +1,32 @@
 ## CS787 Course Project
 
-### Purpose
-This repository hosts a learning-and-research implementation of a text-to-image foundational model built largely from scratch in PyTorch, followed by a materials inverse-design model (MatterGPT-style) targeting SLICES crystal notation and property conditioning.
+This repository tracks a from-scratch reimplementation of the MINIM model for text-conditioned medical image generation and its training/evaluation stack. It's a diffusion-based text-to-medical-image generative model capable of synthesizing high-quality, multi-modal medical images conditioned on natural language prompts and modality specifications. The project will create a new codebase, independently replicating and enhancing the core functionalities described in the original MINIM repository to ensure modularity, extensibility, and compliance with best practices in machine learning for medical imaging.
 
 ### Tooling and Environments
 - **Python management (uv)**: fast package/dependency manager and runner.
 - **Lint/format (ruff)**: single tool for linting and formatting.
 
-### Quickstart
-1) Install uv:
-   - **macOS/Linux**:
+## Tooling
+
+- **Python management (uv)**: fast package/dependency manager/runner
+- **Training launcher**: Accelerate (multi-device, mixed precision)
+- **DL libs**: PyTorch, Diffusers, Transformers
+- **Eval**: clean-fid/torchvision metrics, scikit-image
+- **Lint/format**: ruff
+
+## Install
+
+1. Install uv
+   - macOS/Linux:
+
    ```bash
    curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
-   - **Windows (PowerShell)**:
+
+   - Windows (PowerShell):
+
    ```powershell
    powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-   ```
-   - **Windows (cmd)**:
-   ```cmd
-   curl -LsSf https://astral.sh/uv/install.bat | cmd
    ```
 
 2) Create/activate a virtualenv and install project in editable mode with dev tools:
