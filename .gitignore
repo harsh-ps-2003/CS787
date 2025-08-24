@@ -15,3 +15,5 @@ venv/
 
 .cursor/
 settings.json
+
+.DS_Store
