@@ -18,14 +18,12 @@ class SyntheticSystem:
         self.model = StableDiffusionPipeline.from_pretrained(
             config["model_paths"]["stable_diffusion"],
             torch_dtype=torch.float16 if config["device"]["precision"] == "float16" else torch.float32,
-            requires_safety_checker=False,
+            safety_checker=None,
             use_safetensors=True
         )
-        
-        self.model.vae = None
-        self.model.feature_extractor = None
-        
-        self.model = move_to_device(self.model, self.device)
+
+        use_half = (self.device.type == "cuda" and self.config["device"]["precision"] == "float16")
+        self.model = move_to_device(self.model, self.device, use_half=use_half)
         
         if config["synthetic_system"]["enable_training"]:
             self.optimizer = torch.optim.Adam(
@@ -62,7 +60,7 @@ class SyntheticSystem:
                 ).images[0]
                 
                 selector_score = selector.evaluate_image(current_image)
-                if selector_score >= self.config["selector"]["threshold"]:
+                if selector_score >= self.config["generation"]["quality_threshold"]:
                     candidates.append(current_image)
                     logging.info(f"Found candidate {len(candidates)}/3 (selector score: {selector_score:.2f})")
             

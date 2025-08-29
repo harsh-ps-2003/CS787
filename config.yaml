@@ -28,7 +28,7 @@ training:
 
 # Data configuration
 data:
-  ratings_file: "data/medical_ratings.csv"
+  ratings_file: "medical_ratings.csv"
   num_workers: 4
   rating_range: [1, 2, 3]
   augmentation:

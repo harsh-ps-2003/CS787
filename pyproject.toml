@@ -3,7 +3,7 @@ name = "cs787"
 version = "1.0.0"
 description = "CS787 Project"
 readme = "README.md"
-requires-python = "=3.12"
+requires-python = ">=3.10,<3.13"
 dependencies = [
   "torch>=2.3.0",
   "torchvision>=0.20.0",
@@ -22,6 +22,10 @@ dependencies = [
   "clean-fid>=0.1.35",
   "pyyaml>=6.0.1",
   "tqdm>=4.66.0",
+  "wandb>=0.17.0",
+  "pydicom>=2.4.4",
+  "nibabel>=5.2.1",
+  "scipy>=1.12.0",
 ]
 
 [project.optional-dependencies]

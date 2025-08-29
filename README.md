@@ -117,7 +117,348 @@ uv run ruff format .
 - **GPU 0**: NVIDIA TITAN Xp (12GB VRAM, 0% load)
 - **GPU 1**: NVIDIA TITAN Xp (12GB VRAM, 0% load)s
 
+## Training
+
+The training system implements a **two-stage Reinforcement Learning from Human Feedback (RLHF)** pipeline that optimizes medical image generation quality through expert ratings and automated quality assessment.
+
+### System Architecture
+
+```mermaid
+graph TB
+    subgraph "Data Input"
+        A[Expert Ratings CSV] --> B[Rating System]
+        C[Medical Images] --> D[Medical Processor]
+    end
+    
+    subgraph "Core Components"
+        E[Synthetic System<br/>Stable Diffusion] --> F[Image Generation]
+        G[Selector Model<br/>Vision Transformer] --> H[Quality Assessment]
+        I[Policy Model<br/>RLHF + CLIP] --> J[Prompt-Image Alignment]
+    end
+    
+    subgraph "Training Pipeline"
+        K[Stage 1: Joint Training] --> L[Train Selector + Policy]
+        M[Stage 2: Filtered Training] --> N[Use Selector to Filter<br/>Train on High-Quality Data]
+    end
+    
+    subgraph "Output"
+        O[Checkpoints] --> P[Selector Weights]
+        O --> Q[Policy Weights]
+        O --> R[Synthetic System Weights]
+    end
+    
+    B --> L
+    F --> H
+    H --> J
+    L --> M
+    H --> M
+```
+
+### Training Stages
+
+#### Stage 1: Foundation Training
+- **Objective**: Train both Selector and Policy models using all available data
+- **Selector Learning**: Discriminate between high-quality (rating 2-3) and low-quality (rating 1) medical images
+- **Policy Learning**: Learn optimal prompt-image alignment using expert ratings
+- **Duration**: Configurable epochs (default: 100)
+
+#### Stage 2: Quality-Filtered Training
+- **Objective**: Use trained Selector to filter low-quality images, then train Policy on filtered high-quality data
+- **Selector Threshold**: Configurable quality threshold (default: 0.6)
+- **Policy Refinement**: Focus on high-quality samples for better alignment learning
+- **Iterative Improvement**: Continuous refinement of both models
+
+### Training Components
+
+#### 1. Synthetic System
+- **Base Model**: Stable Diffusion v1.5 with medical domain adaptation
+- **Training Mode**: Optional fine-tuning during RLHF (disabled by default)
+- **Image Generation**: 512x512 resolution, configurable inference steps and guidance scale
+
+#### 2. Selector Model
+- **Architecture**: Vision Transformer (ViT) with medical quality metrics
+- **Input**: Medical images (grayscale, normalized)
+- **Output**: Quality score (0-1 range)
+- **Quality Metrics**: SNR, contrast, artifact detection
+- **Training**: Binary classification with expert rating supervision
+
+#### 3. Policy Model
+- **Architecture**: Vision Transformer + CLIP fusion network
+- **Input**: Medical images + text prompts
+- **Output**: Alignment score (0-1 range)
+- **Training**: RLHF with advantage-based policy gradient
+- **Loss Function**: Custom advantage-weighted log probability
+
+#### 4. Rating System
+- **Data Source**: CSV with columns: `image_path`, `rating`, `modality`, `expert_level`, `prompt`
+- **Rating Scale**: 1-3 scale (1: poor, 2: acceptable, 3: excellent)
+- **Expert Weighting**: Optional expert level weighting for training
+- **Batch Processing**: Configurable batch sizes for training
+
+### Training Configuration
+
+The training system is configured through `config.yaml`:
+
+```yaml
+training:
+  stage: 2                    # Training stage (1 or 2)
+  max_epochs: 100            # Maximum training epochs
+  batch_size: 32             # Training batch size
+  stage1:
+    learning_rate: 0.0001    # Stage 1 learning rate
+    train_selector: true     # Train selector in stage 1
+  stage2:
+    learning_rate: 0.0001    # Stage 2 learning rate
+    selector_threshold: 0.2  # Quality threshold for filtering
+  checkpoints:
+    save_dir: "checkpoints"  # Checkpoint directory
+    save_frequency: 10       # Save every N epochs
+```
+
+### Training Commands
+
+#### Start Training
+```bash
+# From project root - starts RLHF training pipeline
+uv run python main.py
+```
+
+#### Monitor Training
+```bash
+# Training logs are saved to training.log
+tail -f training.log
+
+# W&B integration for experiment tracking
+# Training metrics are automatically logged
+```
+
+#### Resume Training
+```bash
+# Set load_latest_checkpoint: true in config.yaml
+# Training will automatically resume from latest checkpoint
+```
+
+### Training Outputs
+
+#### Checkpoints
+```
+checkpoints/
+├── [timestamp]/
+│   ├── epoch_10/
+│   │   ├── policy_checkpoint.pt
+│   │   ├── selector_checkpoint.pt
+│   │   └── synthetic_checkpoint.pt
+│   ├── epoch_20/
+│   └── ...
+```
+
+#### Training Metrics
+- **Policy Loss**: RLHF policy optimization loss
+- **Selector Loss**: Quality assessment training loss
+- **Pass Rate**: Percentage of images passing quality threshold
+- **Learning Rates**: Current learning rates for all models
+- **Synthetic Loss**: Optional synthetic system fine-tuning loss
+
+## Generation
+
+The generation system provides **two distinct approaches**: baseline generation using vanilla Stable Diffusion and RLHF-enhanced generation using trained quality control models.
+
+### Generation Architecture
+
+```mermaid
+graph LR
+    subgraph "Input"
+        A[Text Prompt] --> B[Modality Specification]
+        C[Generation Parameters] --> D[Quality Settings]
+    end
+    
+    subgraph "Generation Paths"
+        E[Baseline Generation<br/>Stable Diffusion] --> F[Direct Output]
+        G[RLHF Generation<br/>Policy + Selector] --> H[Quality Filtered Output]
+    end
+    
+    subgraph "Quality Control"
+        I[Selector Model] --> J[Quality Score]
+        K[Policy Model] --> L[Alignment Score]
+        M[Threshold Filtering] --> N[High-Quality Images]
+    end
+    
+    A --> E
+    A --> G
+    G --> I
+    G --> K
+    I --> M
+    K --> M
+    M --> N
+```
+
+### Generation Modes
+
+#### 1. Baseline Generation (No Training Required)
+- **Purpose**: Quick medical image generation without quality control
+- **Use Case**: Prototyping, testing, baseline comparisons
+- **Model**: Vanilla Stable Diffusion v1.5
+- **Output**: Raw generated images
+
+#### 2. RLHF-Enhanced Generation (After Training)
+- **Purpose**: High-quality medical image generation with automated quality control
+- **Use Case**: Production use, clinical applications, research
+- **Models**: Trained Selector + Policy + Synthetic System
+- **Output**: Quality-filtered, prompt-aligned medical images
+
+### Generation Parameters
+
+#### Common Parameters
+- **Prompt**: Medical description with modality specification
+- **Number of Images**: How many images to generate
+- **Device**: CPU/GPU selection
+- **Inference Steps**: Number of denoising steps (higher = better quality, slower)
+
+#### RLHF-Specific Parameters
+- **Quality Threshold**: Minimum selector score for acceptance
+- **Policy Checkpoint**: Path to trained policy model
+- **Modality**: Medical imaging modality for specialized processing
+
+### Generation Commands
+
+#### Baseline Generation
+```bash
+# Generate chest X-ray images
+uv run python generate.py \
+    --pretrained_model runwayml/stable-diffusion-v1-5 \
+    --prompt "Chest X-ray: normal lung fields without infiltrates" \
+    --img_num 3 \
+    --device cpu \
+    --num_inference_steps 50 \
+    --output_dir generated_images
+
+# Generate OCT retinal images
+uv run python generate.py \
+    --pretrained_model runwayml/stable-diffusion-v1-5 \
+    --prompt "OCT: healthy retinal layers with clear foveal depression" \
+    --img_num 2 \
+    --device cuda:0 \
+    --num_inference_steps 100
+```
+
+#### RLHF-Enhanced Generation
+```bash
+# Generate with trained quality control models
+cd RLHF
+uv run python generate.py \
+    --prompt "Brain MRI: T1-weighted image showing normal parenchyma" \
+    --num_images 5 \
+    --config ../config.yaml \
+    --policy_checkpoint ../checkpoints/latest/policy_checkpoint.pt \
+    --output_dir ../generated_rlhf \
+    --modality "Brain MRI"
+```
+
+### Generation Workflow
+
+#### Baseline Generation Flow
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant G as Generate.py
+    participant SD as Stable Diffusion
+    participant O as Output
+    
+    U->>G: Text prompt + parameters
+    G->>SD: Generate image
+    SD->>G: Raw image
+    G->>O: Save image
+    O->>U: Generated image
+```
+
+#### RLHF Generation Flow
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant G as RLHF Generate
+    participant SS as Synthetic System
+    participant S as Selector
+    participant P as Policy
+    participant O as Output
+    
+    U->>G: Text prompt + parameters
+    G->>SS: Generate candidate images
+    SS->>S: Evaluate quality
+    S->>G: Quality scores
+    G->>P: Evaluate prompt alignment
+    P->>G: Alignment scores
+    G->>G: Filter by quality threshold
+    G->>O: Save high-quality images
+    O->>U: Quality-filtered images
+```
+
+### Output Management
+
+#### File Naming Convention
+```
+generated_images/
+├── chest_xray_0.png
+├── chest_xray_1.png
+├── chest_xray_2.png
+└── ...
+
+generated_rlhf/
+├── Brain_MRI_1_selector_0.85_policy_0.92.png
+├── Brain_MRI_2_selector_0.78_policy_0.89.png
+└── ...
+```
+
+#### Quality Metrics
+- **Selector Score**: Image quality assessment (0-1)
+- **Policy Score**: Prompt-image alignment (0-1)
+- **Generation Attempts**: Number of attempts to meet quality threshold
+
+### Advanced Generation Features
+
+#### Batch Processing
+```bash
+# Generate multiple modalities in batch
+for modality in "OCT" "Chest CT" "Brain MRI"; do
+    uv run python generate.py \
+        --pretrained_model runwayml/stable-diffusion-v1-5 \
+        --prompt "${modality}: normal findings" \
+        --img_num 5 \
+        --output_dir "generated_${modality// /_}"
+done
+```
+
+#### Custom Model Loading
+```bash
+# Use custom fine-tuned model
+uv run python generate.py \
+    --pretrained_model ./custom_medical_model \
+    --model_used ./custom_medical_model \
+    --prompt "Fundus: diabetic retinopathy changes" \
+    --img_num 1
+```
+
+### Generation Best Practices
+
+#### Prompt Engineering
+- **Be Specific**: Include anatomical location and pathology details
+- **Use Medical Terminology**: Leverage standard radiological descriptions
+- **Modality Specification**: Always specify imaging modality
+- **Example**: `"Chest CT: bilateral ground glass opacities in lower lobes with peripheral sparing"`
+
+#### Quality Optimization
+- **Inference Steps**: Use 50-100 steps for medical images
+- **Guidance Scale**: 7.5-15 for strong prompt adherence
+- **Batch Size**: Generate multiple candidates and select best
+- **Post-processing**: Apply medical image normalization if needed
+
+#### Resource Management
+- **GPU Memory**: Monitor VRAM usage for large models
+- **CPU Fallback**: Use CPU for development/testing
+- **Batch Processing**: Process multiple prompts efficiently
+- **Checkpoint Loading**: Load models once, generate multiple images
+
 # References 
 
 * [Self-improving generative foundation model for synthetic medical image generation and clinical applications](https://www.nature.com/articles/s41591-024-03359-y)
 * [MINIM](https://github.com/WithStomach/MINIM)
+* [PubMedBERT](https://arxiv.org/pdf/2007.15779)

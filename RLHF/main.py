@@ -60,7 +60,8 @@ def train(config: Dict):
             continue
 
 def main():
-    config = yaml.safe_load(Path("config/config.yaml").read_text())
+    # Root-level config.yaml is the single source of truth
+    config = yaml.safe_load(Path("config.yaml").read_text())
     setup_logging(config)
     train(config)
 

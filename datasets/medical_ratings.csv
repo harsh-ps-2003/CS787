@@ -1,5 +1,19 @@
 image_path,rating,modality,expert_level,prompt
-data/oct/sample1.png,3,OCT,3,"OCT: healthy retinal layers"
-data/oct/sample1.png,3,OCT,2,"OCT: bad retinal layers"
-data/oct/sample1.png,3,OCT,1,"OCT: worse retinal layers"
-data/oct/sample1.png,3,OCT,3,"OCT: good retinal layers"
+datasets/example/oct/0.jpg,3,OCT,3,OCT: healthy retinal layers with clear foveal depression
+datasets/example/oct/1.jpg,2,OCT,2,OCT: mild retinal thinning in peripheral regions
+datasets/example/oct/2.jpg,1,OCT,1,OCT: significant retinal pathology with fluid accumulation
+datasets/example/fundus/0.jpg,3,Fundus,3,Fundus: normal retinal vasculature without abnormalities
+datasets/example/fundus/1.jpg,2,Fundus,2,Fundus: mild diabetic retinopathy changes
+datasets/example/fundus/2.jpg,1,Fundus,1,Fundus: advanced diabetic retinopathy with neovascularization
+datasets/example/chest-ct/0.jpg,3,Chest CT,3,Chest CT: normal lung parenchyma without nodules
+datasets/example/chest-ct/1.jpg,2,Chest CT,2,Chest CT: mild ground glass opacities in lower lobes
+datasets/example/chest-ct/2.jpg,1,Chest CT,1,Chest CT: extensive bilateral infiltrates consistent with pneumonia
+datasets/example/cxr/0.jpg,3,Chest X-Ray,3,Chest X-ray: normal cardiac silhouette and clear lung fields
+datasets/example/cxr/1.jpg,2,Chest X-Ray,2,Chest X-ray: mild cardiomegaly with clear lung fields
+datasets/example/cxr/2.jpg,1,Chest X-Ray,1,Chest X-ray: significant cardiomegaly with pulmonary congestion
+datasets/example/brain-mri/0.jpg,3,Brain MRI,3,Brain MRI: normal brain parenchyma without mass lesions
+datasets/example/brain-mri/1.jpg,2,Brain MRI,2,Brain MRI: small white matter hyperintensities
+datasets/example/brain-mri/2.jpg,1,Brain MRI,1,Brain MRI: large enhancing mass in right temporal lobe
+datasets/example/breast-mri/0.jpg,3,Breast MRI,3,Breast MRI: normal breast tissue without suspicious findings
+datasets/example/breast-mri/1.jpg,2,Breast MRI,2,Breast MRI: small enhancing focus requiring follow-up
+datasets/example/breast-mri/2.jpg,1,Breast MRI,1,Breast MRI: irregular enhancing mass suspicious for malignancy
