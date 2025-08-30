@@ -31,7 +31,7 @@ datasets/mri/breast_lesion.png,Breast MRI: irregular enhancing mass in upper out
 ### Image Format Support
 - **Standard formats**: PNG, JPG, JPEG
 - **Medical formats**: DICOM (.dcm), NIfTI (.nii, .nii.gz)
-- **Resolution**: Configurable (default: 512x512)
+- **Resolution**: Configurable (default: 256x256)
 - **Channels**: Grayscale (L) or RGB
 
 ### Dataset Organization
@@ -173,7 +173,7 @@ graph TB
 #### 1. Synthetic System
 - **Base Model**: Stable Diffusion v1.5 with medical domain adaptation
 - **Training Mode**: Optional fine-tuning during RLHF (disabled by default)
-- **Image Generation**: 512x512 resolution, configurable inference steps and guidance scale
+- **Image Generation**: 256x256 resolution, configurable inference steps and guidance scale
 
 #### 2. Selector Model
 - **Architecture**: Vision Transformer (ViT) with medical quality metrics

@@ -37,21 +37,21 @@ class Classifier(nn.Module):
     def __init__(self, class_num=3):
         super(Classifier, self).__init__()
         self.cnn = nn.Sequential(
-            nn.Conv2d(3, 64, 3, 1, 1),  # [64, 512, 512]
+            nn.Conv2d(3, 64, 3, 1, 1),  # [64, 256, 256]
             nn.ReLU(),
-            nn.MaxPool2d(2, 2, 0),  # [64, 256, 256]
-            nn.Conv2d(64, 128, 3, 1, 1),  # [128, 256, 256]
+            nn.MaxPool2d(2, 2, 0),  # [64, 128, 128]
+            nn.Conv2d(64, 128, 3, 1, 1),  # [128, 128, 128]
             nn.ReLU(),
-            nn.MaxPool2d(2, 2, 0),  # [128, 128, 128]
-            nn.Conv2d(128, 256, 3, 1, 1),  # [256, 128, 128]
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2, 0),  # [256, 64, 64]
-            nn.Conv2d(256, 256, 3, 1, 1),  # [256, 64, 64]
+            nn.MaxPool2d(2, 2, 0),  # [128, 64, 64]
+            nn.Conv2d(128, 256, 3, 1, 1),  # [256, 64, 64]
             nn.ReLU(),
             nn.MaxPool2d(2, 2, 0),  # [256, 32, 32]
+            nn.Conv2d(256, 256, 3, 1, 1),  # [256, 32, 32]
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2, 0),  # [256, 16, 16]
         )
         self.fc = nn.Sequential(
-            nn.Linear(256 * 32 * 32, 1024),
+            nn.Linear(256 * 16 * 16, 1024),
             nn.ReLU(),
             nn.Linear(1024, 512),
             nn.ReLU(),

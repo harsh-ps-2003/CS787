@@ -46,7 +46,7 @@ synthetic_system:
   enable_training: false  # Whether to update the synthetic model
   num_inference_steps: 50
   guidance_scale: 7.5
-  image_size: [512, 512]
+  image_size: [256, 256]
   max_attempts: 10
   medical_settings:
     modalities: ["OCT", "Chest CT", "Chest X-Ray", "Brain MRI", "Breast MRI", "Fundus"]
