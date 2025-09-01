@@ -548,6 +548,7 @@ EOF
   ```bash
   UV_NO_SYNC=1 uv run python generate.py \
     --pretrained_model runwayml/stable-diffusion-v1-5 \
+    --model_used ./checkpoints/latest \
     --prompt "Chest X-ray: normal lung fields without infiltrates" \
     --img_num 3 \
     --device cuda:0 \
@@ -559,6 +560,7 @@ EOF
   ```bash
   cd RLHF
   UV_NO_SYNC=1 uv run python main.py --config ../config.yaml
+  # This will write checkpoints under ../checkpoints; use that path for --model_used in generate.py
   ```
   Ensure `device.use_cuda: true` in `config.yaml`.
 
