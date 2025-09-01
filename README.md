@@ -96,6 +96,12 @@ datasets/
 ```bash
 uv venv
 uv pip install -e .
+
+If you see an error like `module 'torch.library' has no attribute 'custom_op'`, pin diffusers to 0.30.0 (compatible with torch 2.3):
+
+```bash
+uv pip install --force-reinstall "diffusers==0.30.0"
+```
 ```
 
 3) Run the app:
