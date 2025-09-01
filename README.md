@@ -559,8 +559,25 @@ EOF
 - RLHF training/generation:
   ```bash
   cd RLHF
+  # RLHF expects the root-level config.yaml, so run from RLHF/ but point to ../config.yaml
   UV_NO_SYNC=1 uv run python main.py --config ../config.yaml
   # This will write checkpoints under ../checkpoints; use that path for --model_used in generate.py
+
+### Using the helper scripts
+
+- Training (fine-tuning Stable Diffusion UNet via Accelerate):
+  ```bash
+  cd scripts
+  bash train.sh
+  ```
+  Edit `scripts/train.sh` to set `MODEL_NAME`, `DATASET_NAME`, device, and output directory.
+
+- Generation via script:
+  ```bash
+  cd scripts
+  bash generate.sh
+  ```
+  Edit `scripts/generate.sh` to set `--model_used` (directory that contains a `unet/` subfolder), prompt, and output path.
   ```
   Ensure `device.use_cuda: true` in `config.yaml`.
 
