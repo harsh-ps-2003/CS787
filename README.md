@@ -502,17 +502,16 @@ libcudnn.so.8.9.1.23
 
 ### Install project with CUDA 11.8-compatible PyTorch
 
-`pyproject.toml` pins versions compatible with CUDA 11.8 for Python 3.11:
-
-- torch==2.3.0
-- torchvision==0.18.0
+`pyproject.toml` pins versions compatible with CUDA 11.8 for Python 3.11
 
 Install:
 
 ```bash
 uv venv
-uv pip install -e .
+uv pip install -e . --index-url https://download.pytorch.org/whl/cu118
 ```
+
+This ensures PyTorch installs with CUDA 11.8 support instead of CUDA 12.
 
 ### GPU sanity checks
 
