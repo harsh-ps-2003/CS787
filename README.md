@@ -100,7 +100,7 @@ uv pip install -e .
 
 3) Run the app:
 ```bash
-uv run python main.py
+UV_NO_SYNC=1 uv run python main.py
 ```
 
 4) Format code and run lints:
@@ -220,7 +220,7 @@ training:
 #### Start Training
 ```bash
 # From project root - starts RLHF training pipeline
-uv run python main.py
+UV_NO_SYNC=1 uv run python main.py
 ```
 
 #### Monitor Training
@@ -324,7 +324,7 @@ graph LR
 #### Baseline Generation
 ```bash
 # Generate chest X-ray images
-uv run python generate.py \
+UV_NO_SYNC=1 uv run python generate.py \
     --pretrained_model runwayml/stable-diffusion-v1-5 \
     --prompt "Chest X-ray: normal lung fields without infiltrates" \
     --img_num 3 \
@@ -333,7 +333,7 @@ uv run python generate.py \
     --output_dir generated_images
 
 # Generate OCT retinal images
-uv run python generate.py \
+UV_NO_SYNC=1 uv run python generate.py \
     --pretrained_model runwayml/stable-diffusion-v1-5 \
     --prompt "OCT: healthy retinal layers with clear foveal depression" \
     --img_num 2 \
@@ -345,7 +345,7 @@ uv run python generate.py \
 ```bash
 # Generate with trained quality control models
 cd RLHF
-uv run python generate.py \
+UV_NO_SYNC=1 uv run python generate.py \
     --prompt "Brain MRI: T1-weighted image showing normal parenchyma" \
     --num_images 5 \
     --config ../config.yaml \
@@ -419,7 +419,7 @@ generated_rlhf/
 ```bash
 # Generate multiple modalities in batch
 for modality in "OCT" "Chest CT" "Brain MRI"; do
-    uv run python generate.py \
+    UV_NO_SYNC=1 uv run python generate.py \
         --pretrained_model runwayml/stable-diffusion-v1-5 \
         --prompt "${modality}: normal findings" \
         --img_num 5 \
@@ -430,7 +430,7 @@ done
 #### Custom Model Loading
 ```bash
 # Use custom fine-tuned model
-uv run python generate.py \
+UV_NO_SYNC=1 uv run python generate.py \
     --pretrained_model ./custom_medical_model \
     --model_used ./custom_medical_model \
     --prompt "Fundus: diabetic retinopathy changes" \
@@ -524,10 +524,11 @@ This ensures PyTorch installs with CUDA 11.8 support instead of CUDA 12.
 
 ### GPU sanity checks
 
-PyTorch:
+PyTorch (use the venv's Python to avoid uv auto-resolving packages):
 
 ```bash
-uv run python - << 'EOF'
+source .venv/bin/activate
+python - << 'EOF'
 import torch
 print("CUDA available:", torch.cuda.is_available())
 print("CUDA device count:", torch.cuda.device_count())
@@ -539,7 +540,7 @@ EOF
 
 - Baseline generation:
   ```bash
-  uv run python generate.py \
+  UV_NO_SYNC=1 uv run python generate.py \
     --pretrained_model runwayml/stable-diffusion-v1-5 \
     --prompt "Chest X-ray: normal lung fields without infiltrates" \
     --img_num 3 \
@@ -551,7 +552,7 @@ EOF
 - RLHF training/generation:
   ```bash
   cd RLHF
-  uv run python main.py --config ../config.yaml
+  UV_NO_SYNC=1 uv run python main.py --config ../config.yaml
   ```
   Ensure `device.use_cuda: true` in `config.yaml`.
 
