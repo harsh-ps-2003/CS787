@@ -510,8 +510,14 @@ Install:
 uv venv
 # Install PyTorch with CUDA 11.8 support first
 uv pip install torch==2.3.0 torchvision==0.18.0 --index-url https://download.pytorch.org/whl/cu118
-# Then install the rest of the project
+# Then install the rest of the project (this will use the CUDA 11.8 PyTorch)
 uv pip install -e .
+```
+
+```bash
+# Force reinstall with CUDA 11.8 constraints
+uv pip install -e . --force-reinstall --no-deps
+uv pip install --index-url https://download.pytorch.org/whl/cu118 transformers datasets einops diffusers accelerate huggingface-hub safetensors tokenizers pandas pillow scikit-image clean-fid pyyaml tqdm wandb pydicom nibabel scipy
 ```
 
 This ensures PyTorch installs with CUDA 11.8 support instead of CUDA 12.
