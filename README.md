@@ -456,6 +456,96 @@ uv run python generate.py \
 - **CPU Fallback**: Use CPU for development/testing
 - **Batch Processing**: Process multiple prompts efficiently
 - **Checkpoint Loading**: Load models once, generate multiple images
+ 
+## Running on GPUs (CUDA 11.8, Python 3.11)
+
+The repository is configured for Python 3.11. For CUDA 11.8 GPU execution on a remote with dependency constraints, follow these steps.
+
+### Verify NVIDIA stack
+
+```bash
+nvcc --version
+nvidia-smi
+```
+
+### Ensure CUDA/cuDNN libraries are readable
+
+```bash
+ls /usr/local/cuda-11.8/lib64/libcudart.so*
+ls /usr/local/cuda-11.8/lib64/libcublas.so*
+```
+
+Optionally install cuDNN in user space and export paths:
+
+```bash
+wget --no-check-certificate \
+  https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.9.7.29_cuda11-archive.tar.xz
+
+mkdir -p ~/local/cudnn/include ~/local/cudnn/lib
+tar -xJf cudnn-linux-x86_64-*-cuda11-archive.tar.xz --strip-components=1 -C ~/local/cudnn
+
+export CUDA_HOME=/usr/local/cuda-11.8
+export PATH=$CUDA_HOME/bin:$PATH
+export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$HOME/local/cudnn/lib:$LD_LIBRARY_PATH
+export CPATH=$HOME/local/cudnn/include:$CPATH
+
+ls -l ~/local/cudnn/lib/libcudnn*
+```
+
+Expected output contains symlinks like:
+
+```
+libcudnn.so -> libcudnn.so.8
+libcudnn.so.8 -> libcudnn.so.8.9.1.23
+libcudnn.so.8.9.1.23
+```
+
+### Install project with CUDA 11.8-compatible PyTorch
+
+`pyproject.toml` pins versions compatible with CUDA 11.8 for Python 3.11:
+
+- torch==2.3.0
+- torchvision==0.18.0
+
+Install:
+
+```bash
+uv venv
+uv pip install -e .
+```
+
+### GPU sanity checks
+
+PyTorch:
+
+```bash
+uv run python - << 'EOF'
+import torch
+print("CUDA available:", torch.cuda.is_available())
+print("CUDA device count:", torch.cuda.device_count())
+print("Device 0:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else None)
+EOF
+```
+
+### Using GPU in this repo
+
+- Baseline generation:
+  ```bash
+  uv run python generate.py \
+    --pretrained_model runwayml/stable-diffusion-v1-5 \
+    --prompt "Chest X-ray: normal lung fields without infiltrates" \
+    --img_num 3 \
+    --device cuda:0 \
+    --num_inference_steps 50 \
+    --output_dir generated_images
+  ```
+
+- RLHF training/generation:
+  ```bash
+  cd RLHF
+  uv run python main.py --config ../config.yaml
+  ```
+  Ensure `device.use_cuda: true` in `config.yaml`.
 
 # References 
 
