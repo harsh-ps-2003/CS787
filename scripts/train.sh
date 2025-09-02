@@ -2,7 +2,7 @@
 
 export MODEL_NAME="/data2404/zhangchi/models/stable-diffusion-v1-4"
 export DATASET_NAME="/data2404/zhangchi/dataset/fundus/fundus_data.csv"
-export CUDA_VISIBLE_DEVICES="7"
+export CUDA_VISIBLE_DEVICES="0"
 export WANDB_MODE="offline"
 
 accelerate launch --num_processes=1 --mixed_precision="fp16" ../training/model.py \

@@ -331,7 +331,7 @@ Follow this sequence for optimal results (based on MINIM's approach):
 
 #### Step 1: Quick Baseline Generation (No Training Required)
 ```bash
-# Generate with RLHF system (works without checkpoints)
+# Generate with RLHF system (works without checkpoints) - GPU enabled
 UV_NO_SYNC=1 uv run python RLHF/generate.py \
     --prompt "Chest X-ray: normal lung fields without infiltrates" \
     --num_images 3 \
@@ -344,7 +344,7 @@ UV_NO_SYNC=1 uv run python RLHF/generate.py \
 ```bash
 # Edit scripts/train.sh to set your paths, then:
 cd scripts
-bash train.sh
+bash train.sh  # Uses GPU 0 with mixed precision (fp16)
 cd ..
 # This creates checkpoint/sd-model-finetuned-on-fundus/checkpoint-100/ with unet/ subfolder
 ```
@@ -365,6 +365,7 @@ UV_NO_SYNC=1 uv run python generate.py \
 #### Step 4: RLHF Training (Policy + Selector)
 ```bash
 # IMPORTANT: Run from repo root (RLHF/main.py reads Path("config.yaml"))
+# GPU enabled via config.yaml: device.use_cuda: true
 UV_NO_SYNC=1 uv run python RLHF/main.py
 # This writes checkpoints under checkpoints/latest/
 ```

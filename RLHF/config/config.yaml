@@ -5,7 +5,7 @@ model_paths:
 
 # Device configuration
 device:
-  use_cuda: false
+  use_cuda: true
   precision: "float16"
 
 # Training configuration
