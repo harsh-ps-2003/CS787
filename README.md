@@ -325,40 +325,68 @@ graph LR
 - **Policy Checkpoint**: Path to trained policy model
 - **Modality**: Medical imaging modality for specialized processing
 
-### Generation Commands
+### Complete Workflow Sequence
 
-#### Baseline Generation
+Follow this sequence for optimal results (based on MINIM's approach):
+
+#### Step 1: Quick Baseline Generation (No Training Required)
 ```bash
-# Generate chest X-ray images
-UV_NO_SYNC=1 uv run python generate.py \
-    --pretrained_model runwayml/stable-diffusion-v1-5 \
+# Generate with RLHF system (works without checkpoints)
+UV_NO_SYNC=1 uv run python RLHF/generate.py \
     --prompt "Chest X-ray: normal lung fields without infiltrates" \
-    --img_num 3 \
-    --device cpu \
-    --num_inference_steps 50 \
-    --output_dir generated_images
+    --num_images 3 \
+    --config RLHF/config/config.yaml \
+    --output_dir generated_rlhf \
+    --modality "Chest X-Ray"
+```
 
-# Generate OCT retinal images
+#### Step 2: Fine-tune Stable Diffusion UNet (Optional but Recommended)
+```bash
+# Edit scripts/train.sh to set your paths, then:
+cd scripts
+bash train.sh
+cd ..
+# This creates checkpoint/sd-model-finetuned-on-fundus/checkpoint-100/ with unet/ subfolder
+```
+
+#### Step 3: Generate with Fine-tuned UNet
+```bash
+# Use the fine-tuned UNet from Step 2
 UV_NO_SYNC=1 uv run python generate.py \
     --pretrained_model runwayml/stable-diffusion-v1-5 \
+    --model_used checkpoint/sd-model-finetuned-on-fundus/checkpoint-100 \
     --prompt "OCT: healthy retinal layers with clear foveal depression" \
     --img_num 2 \
     --device cuda:0 \
-    --num_inference_steps 100
+    --num_inference_steps 100 \
+    --output_dir generated_images
 ```
 
-#### RLHF-Enhanced Generation
+#### Step 4: RLHF Training (Policy + Selector)
+```bash
+# IMPORTANT: Run from repo root (RLHF/main.py reads Path("config.yaml"))
+UV_NO_SYNC=1 uv run python RLHF/main.py
+# This writes checkpoints under checkpoints/latest/
+```
+
+#### Step 5: RLHF-Enhanced Generation (After Training)
 ```bash
 # Generate with trained quality control models
-cd RLHF
-UV_NO_SYNC=1 uv run python generate.py \
+UV_NO_SYNC=1 uv run python RLHF/generate.py \
     --prompt "Brain MRI: T1-weighted image showing normal parenchyma" \
     --num_images 5 \
-    --config ../config.yaml \
-    --policy_checkpoint ../checkpoints/latest/policy_checkpoint.pt \
-    --output_dir ../generated_rlhf \
+    --config RLHF/config/config.yaml \
+    --policy_checkpoint checkpoints/latest/policy_checkpoint.pt \
+    --output_dir generated_rlhf \
     --modality "Brain MRI"
 ```
+
+### Quick Start Options
+
+**For immediate testing**: Run Step 1 only
+**For domain adaptation**: Run Steps 2 → 3
+**For quality-filtered outputs**: Run Steps 4 → 5
+**For full pipeline**: Run all steps in sequence
 
 ### Generation Workflow
 
@@ -421,26 +449,28 @@ generated_rlhf/
 
 ### Advanced Generation Features
 
-#### Batch Processing
+#### Batch Processing with RLHF System
 ```bash
-# Generate multiple modalities in batch
+# Generate multiple modalities in batch using RLHF system
 for modality in "OCT" "Chest CT" "Brain MRI"; do
-    UV_NO_SYNC=1 uv run python generate.py \
-        --pretrained_model runwayml/stable-diffusion-v1-5 \
+    UV_NO_SYNC=1 uv run python RLHF/generate.py \
         --prompt "${modality}: normal findings" \
-        --img_num 5 \
-        --output_dir "generated_${modality// /_}"
+        --num_images 5 \
+        --config RLHF/config/config.yaml \
+        --output_dir "generated_${modality// /_}" \
+        --modality "${modality}"
 done
 ```
 
-#### Custom Model Loading
+#### Using Helper Scripts
 ```bash
-# Use custom fine-tuned model
-UV_NO_SYNC=1 uv run python generate.py \
-    --pretrained_model ./custom_medical_model \
-    --model_used ./custom_medical_model \
-    --prompt "Fundus: diabetic retinopathy changes" \
-    --img_num 1
+# Fine-tuning script (edit paths in scripts/train.sh first)
+cd scripts
+bash train.sh
+
+# Generation script (edit paths in scripts/generate.sh first)
+cd scripts
+bash generate.sh
 ```
 
 ### Generation Best Practices
