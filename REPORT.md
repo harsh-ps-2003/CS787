@@ -1,7 +1,7 @@
 ## CS787 Technical Report
 
 ### Scope
-Generate synthetic medical images based on textual descriptions and specified imaging modality (e.g., “breast with tumor, MRI”; “lung with pneumonia, chest X-ray”).
+Generate synthetic medical images based on textual descriptions and specified imaging modality (e.g., "breast with tumor, MRI"; "lung with pneumonia, chest X-ray").
 
 Support for image generation across various imaging modalities:
 
@@ -11,7 +11,13 @@ Support for image generation across various imaging modalities:
 * Chest Computed Tomography (CT)
 * Brain MRI
 
-further extensible to new modalities and prompts. We follow a Multi-Stage Training, initally we train on all data, Selector model filters low-quality outputs, RLHF pipeline for ongoing optimization.
+Further extensible to new modalities and prompts. We follow a Multi-Stage Training approach: initially we train on all data, Selector model filters low-quality outputs, RLHF pipeline for ongoing optimization.
+
+### Implementation Status
+The system now provides two main usage modes:
+
+1. **Pre-trained Model Usage**: Immediate image generation using `simple_generate.py` without any training required
+2. **Custom Training**: Fine-tune models on medical datasets using the training pipeline
 
 ```mermaid
 graph TB
