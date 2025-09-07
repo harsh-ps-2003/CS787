@@ -1,23 +1,41 @@
 #!/bin/bash
 # Automated training script for Stable Diffusion fine-tuning on medical images
 
-# Configuration
+# Configuration - Customize these variables
 export MODEL_NAME="runwayml/stable-diffusion-v1-5"
 export DATASET_NAME="./datasets/example/example_data.csv"
-export CUDA_VISIBLE_DEVICES="0"
+export CUDA_VISIBLE_DEVICES="0,1"  # Use both GPUs (0,1) or single GPU (0)
 export WANDB_MODE="offline"
+
+# GPU Configuration
+NUM_GPUS=$(echo $CUDA_VISIBLE_DEVICES | tr ',' '\n' | wc -l)
+echo "Using $NUM_GPUS GPU(s): $CUDA_VISIBLE_DEVICES"
 
 # Create output directory
 mkdir -p ./checkpoints/medical-model
 
+# Adjust batch size based on number of GPUs
+if [ $NUM_GPUS -eq 2 ]; then
+    TRAIN_BATCH_SIZE=8  # Larger batch size for 2 GPUs
+    GRADIENT_ACCUMULATION_STEPS=2
+else
+    TRAIN_BATCH_SIZE=4  # Smaller batch size for 1 GPU
+    GRADIENT_ACCUMULATION_STEPS=4
+fi
+
+echo "Training configuration:"
+echo "  Batch size: $TRAIN_BATCH_SIZE"
+echo "  Gradient accumulation steps: $GRADIENT_ACCUMULATION_STEPS"
+echo "  Mixed precision: fp16"
+
 # Run training
-accelerate launch --num_processes=1 --mixed_precision="fp16" ../training/model.py \
+accelerate launch --num_processes=$NUM_GPUS --mixed_precision="fp16" ../training/model.py \
   --pretrained_model_name_or_path=$MODEL_NAME \
   --train_data_dir=$DATASET_NAME \
   --use_ema \
   --resolution=256 --center_crop --random_flip \
-  --train_batch_size=4 \
-  --gradient_accumulation_steps=4 \
+  --train_batch_size=$TRAIN_BATCH_SIZE \
+  --gradient_accumulation_steps=$GRADIENT_ACCUMULATION_STEPS \
   --gradient_checkpointing \
   --max_train_steps=1000 \
   --learning_rate=1e-05 \

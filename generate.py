@@ -41,7 +41,7 @@ def parse_args():
         "--device", 
         type=str, 
         default='cuda:0', 
-        help="Device used (cuda:0, cpu, etc.)."
+        help="Device used (cuda:0, cuda:1, cpu, etc.). Auto-detects available GPUs if not specified."
     )
     parser.add_argument(
         "--output_dir", 
@@ -120,8 +120,30 @@ def load_model(args):
         print("3. If using local checkpoint, ensure it's properly formatted")
         return None
 
+def detect_best_device():
+    """Detect the best available device for generation."""
+    if torch.cuda.is_available():
+        gpu_count = torch.cuda.device_count()
+        print(f"CUDA available: {gpu_count} GPU(s) detected")
+        for i in range(gpu_count):
+            gpu_name = torch.cuda.get_device_name(i)
+            print(f"  GPU {i}: {gpu_name}")
+        return f"cuda:0"  # Default to first GPU
+    else:
+        print("CUDA not available, using CPU")
+        return "cpu"
+
 def main():
     args = parse_args()
+    
+    # Auto-detect device if not specified or if cuda:0 is not available
+    if args.device.startswith("cuda") and not torch.cuda.is_available():
+        print(f"Warning: CUDA not available, switching to CPU")
+        args.device = "cpu"
+    elif args.device == "auto":
+        args.device = detect_best_device()
+    
+    print(f"Using device: {args.device}")
     
     # Validate paths if using custom checkpoint
     if not validate_paths(args):

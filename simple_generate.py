@@ -63,8 +63,8 @@ def parse_args():
     parser.add_argument(
         "--device",
         type=str,
-        default="cuda:0" if torch.cuda.is_available() else "cpu",
-        help="Device to use (cuda:0, cpu, etc.)"
+        default="auto",
+        help="Device to use (cuda:0, cuda:1, cpu, auto). 'auto' detects best available GPU."
     )
     
     parser.add_argument(
@@ -101,6 +101,19 @@ def create_medical_prompt(base_prompt, modality):
     }
     
     return modality_prompts.get(modality, f"{modality}: {base_prompt}")
+
+def detect_best_device():
+    """Detect the best available device for generation."""
+    if torch.cuda.is_available():
+        gpu_count = torch.cuda.device_count()
+        print(f"CUDA available: {gpu_count} GPU(s) detected")
+        for i in range(gpu_count):
+            gpu_name = torch.cuda.get_device_name(i)
+            print(f"  GPU {i}: {gpu_name}")
+        return f"cuda:0"  # Default to first GPU
+    else:
+        print("CUDA not available, using CPU")
+        return "cpu"
 
 def load_model(device):
     """Load the pre-trained Stable Diffusion model."""
@@ -169,6 +182,13 @@ def generate_images(pipe, prompt, num_images, steps, guidance_scale, seed, outpu
 
 def main():
     args = parse_args()
+    
+    # Auto-detect device if set to "auto"
+    if args.device == "auto":
+        args.device = detect_best_device()
+    elif args.device.startswith("cuda") and not torch.cuda.is_available():
+        print(f"Warning: CUDA not available, switching to CPU")
+        args.device = "cpu"
     
     # Create medical prompt
     medical_prompt = create_medical_prompt(args.prompt, args.modality)

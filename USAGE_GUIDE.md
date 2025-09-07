@@ -74,6 +74,43 @@ The training script will:
 UV_NO_SYNC=1 uv run python generate.py --model_used ./checkpoints/medical-model --prompt "Chest X-ray: pneumonia" --img_num 3
 ```
 
+## Multi-GPU Configuration
+
+### GPU Detection and Usage
+
+The scripts automatically detect available GPUs and provide configuration options:
+
+```bash
+# Auto-detect best available GPU
+UV_NO_SYNC=1 uv run python simple_generate.py --device auto --prompt "normal chest X-ray" --modality "CXR"
+
+# Use specific GPU
+UV_NO_SYNC=1 uv run python simple_generate.py --device cuda:0 --prompt "normal chest X-ray" --modality "CXR"
+UV_NO_SYNC=1 uv run python simple_generate.py --device cuda:1 --prompt "normal chest X-ray" --modality "CXR"
+
+# Use CPU (fallback)
+UV_NO_SYNC=1 uv run python simple_generate.py --device cpu --prompt "normal chest X-ray" --modality "CXR"
+```
+
+### Training with Multiple GPUs
+
+Edit `scripts/train.sh` to configure GPU usage:
+
+```bash
+# Use both GPUs (0,1)
+export CUDA_VISIBLE_DEVICES="0,1"
+
+# Use only GPU 0
+export CUDA_VISIBLE_DEVICES="0"
+
+# Use only GPU 1  
+export CUDA_VISIBLE_DEVICES="1"
+```
+
+The training script automatically adjusts batch sizes based on the number of GPUs:
+- **1 GPU**: batch_size=4, gradient_accumulation_steps=4
+- **2 GPUs**: batch_size=8, gradient_accumulation_steps=2
+
 ## Configuration Options
 
 ### Simple Generation Script Options
@@ -84,7 +121,7 @@ UV_NO_SYNC=1 uv run python simple_generate.py \
   --modality "CXR" \
   --num_images 3 \
   --output_dir "my_images" \
-  --device "cuda:0" \
+  --device "auto" \
   --steps 50 \
   --guidance_scale 7.5 \
   --seed 42
@@ -98,7 +135,7 @@ UV_NO_SYNC=1 uv run python generate.py \
   --model_used "./checkpoints/my-model" \
   --prompt "Medical description" \
   --img_num 5 \
-  --device "cuda:0" \
+  --device "auto" \
   --num_inference_steps 50 \
   --output_dir "generated_images"
 ```
@@ -106,8 +143,9 @@ UV_NO_SYNC=1 uv run python generate.py \
 ### Training Script Options
 
 Edit `scripts/train.sh` to customize:
+- `CUDA_VISIBLE_DEVICES`: GPU selection ("0", "1", "0,1")
 - `--max_train_steps`: Number of training steps (default: 1000)
-- `--train_batch_size`: Batch size (default: 4)
+- `--train_batch_size`: Batch size (auto-adjusted based on GPU count)
 - `--learning_rate`: Learning rate (default: 1e-05)
 - `--resolution`: Image resolution (default: 256)
 - `--validation_prompts`: Prompts for validation images

@@ -120,8 +120,15 @@ uv run ruff format .
 - **CPU**: 16 physical / 32 logical cores @ 813 MHz
 - **RAM**: 46.81 GB (43.46 GB available)
 - **Storage**: 250.92 GB total, 80.26 GB free
-- **GPU 0**: NVIDIA TITAN Xp (12GB VRAM, 0% load)
-- **GPU 1**: NVIDIA TITAN Xp (12GB VRAM, 0% load)s
+- **GPU 0**: NVIDIA TITAN Xp (12GB VRAM)
+- **GPU 1**: NVIDIA TITAN Xp (12GB VRAM)
+
+### Multi-GPU Support
+The system supports both single and multi-GPU configurations:
+- **Single GPU**: Use `CUDA_VISIBLE_DEVICES="0"` or `CUDA_VISIBLE_DEVICES="1"`
+- **Multi-GPU**: Use `CUDA_VISIBLE_DEVICES="0,1"` for both GPUs
+- **Auto-detection**: Scripts automatically detect available GPUs and adjust batch sizes
+- **Device selection**: Use `--device auto`, `--device cuda:0`, or `--device cuda:1`
 
 ## Training
 
@@ -331,7 +338,7 @@ Follow this sequence for optimal results (based on MINIM's approach):
 
 #### Step 1: Quick Baseline Generation (No Training Required)
 ```bash
-# Generate with RLHF system (works without checkpoints) - GPU enabled
+# Generate with RLHF system (works without checkpoints) - Auto-detect GPU
 UV_NO_SYNC=1 uv run python RLHF/generate.py \
     --prompt "Chest X-ray: normal lung fields without infiltrates" \
     --num_images 3 \
@@ -354,10 +361,10 @@ cd ..
 # Use the fine-tuned UNet from Step 2
 UV_NO_SYNC=1 uv run python generate.py \
     --pretrained_model runwayml/stable-diffusion-v1-5 \
-    --model_used checkpoint/sd-model-finetuned-on-fundus/checkpoint-100 \
+    --model_used ./checkpoints/medical-model \
     --prompt "OCT: healthy retinal layers with clear foveal depression" \
     --img_num 2 \
-    --device cuda:0 \
+    --device auto \
     --num_inference_steps 100 \
     --output_dir generated_images
 ```
@@ -365,8 +372,8 @@ UV_NO_SYNC=1 uv run python generate.py \
 #### Step 4: RLHF Training (Policy + Selector)
 ```bash
 # IMPORTANT: Run from repo root (RLHF/main.py reads Path("config.yaml"))
-# GPU enabled via config.yaml: device.use_cuda: true
-UV_NO_SYNC=1 uv run python RLHF/main.py
+# Auto-detects GPUs and displays configuration
+UV_NO_SYNC=1 uv run python main.py
 # This writes checkpoints under checkpoints/latest/
 ```
 
