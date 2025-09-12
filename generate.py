@@ -125,7 +125,12 @@ def validate_paths(args):
 def load_model(args):
     """Load the model pipeline with proper error handling."""
     try:
-        torch_dtype = torch.float16 if args.precision == "float16" else torch.float32
+        # Force float32 on CPU to avoid compatibility issues
+        if args.device == "cpu":
+            torch_dtype = torch.float32
+        else:
+            torch_dtype = torch.float16 if args.precision == "float16" else torch.float32
+        
         if args.use_pretrained_only or not args.model_used:
             print(f"Loading pretrained model: {args.pretrained_model}")
             pipe = StableDiffusionPipeline.from_pretrained(
