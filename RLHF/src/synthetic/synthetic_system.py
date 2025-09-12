@@ -27,7 +27,10 @@ class SyntheticSystem:
         # Memory optimizations for moderate VRAM GPUs
         try:
             self.model.enable_attention_slicing()
+            self.model.enable_vae_slicing()
             self.model.enable_vae_tiling()
+            # Stabilize VAE in float32 to avoid fp16 segfaults on older GPUs
+            self.model.vae.to(dtype=torch.float32)
         except Exception:
             pass
         

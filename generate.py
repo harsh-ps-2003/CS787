@@ -137,7 +137,10 @@ def load_model(args):
         # Memory optimizations for moderate GPUs
         try:
             pipe.enable_attention_slicing()
+            pipe.enable_vae_slicing()
             pipe.enable_vae_tiling()
+            # Many Pascal-era GPUs (e.g., TITAN Xp) are unstable with VAE in fp16
+            pipe.vae.to(dtype=torch.float32)
         except Exception:
             pass
         
