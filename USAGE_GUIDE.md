@@ -4,30 +4,19 @@ This guide provides clear instructions for both using pre-trained models and tra
 
 ## Quick Start (Pre-trained Models)
 
-### Option 1: Simple Generation Script (Recommended for beginners)
+### Medical Image Generation
 
-Use the `simple_generate.py` script for immediate image generation without any training:
+Use the `generate.py` script for high-quality medical image generation:
 
 ```bash
 # Generate chest X-rays
-UV_NO_SYNC=1 uv run python simple_generate.py --prompt "clear lung fields without infiltrates" --modality "CXR" --num_images 3
+UV_NO_SYNC=1 uv run python generate.py --use_pretrained_only --prompt "Chest X-ray: normal lung fields without infiltrates" --img_num 3 --device cpu
 
 # Generate brain MRI
-UV_NO_SYNC=1 uv run python simple_generate.py --prompt "normal brain anatomy" --modality "MRI" --num_images 2
+UV_NO_SYNC=1 uv run python generate.py --use_pretrained_only --prompt "Brain MRI: T1-weighted image showing normal anatomy" --img_num 2 --device cpu
 
 # Generate fundus images
-UV_NO_SYNC=1 uv run python simple_generate.py --prompt "healthy optic disc" --modality "Fundus" --num_images 1
-```
-
-**Available modalities:** `CXR`, `MRI`, `CT`, `Fundus`, `OCT`
-
-### Option 2: Advanced Generation Script
-
-Use the enhanced `generate.py` script for more control:
-
-```bash
-# Use pre-trained model only (no custom training)
-UV_NO_SYNC=1 uv run python generate.py --use_pretrained_only --prompt "Chest X-ray: normal lung fields" --img_num 3
+UV_NO_SYNC=1 uv run python generate.py --use_pretrained_only --prompt "Fundus: healthy retina with clear optic disc" --img_num 1 --device cpu
 
 # Use with custom checkpoint (after training)
 UV_NO_SYNC=1 uv run python generate.py --model_used ./checkpoints/medical-model --prompt "Chest X-ray: pneumonia" --img_num 5
@@ -113,21 +102,7 @@ The training script automatically adjusts batch sizes based on the number of GPU
 
 ## Configuration Options
 
-### Simple Generation Script Options
-
-```bash
-UV_NO_SYNC=1 uv run python simple_generate.py \
-  --prompt "Your medical description" \
-  --modality "CXR" \
-  --num_images 3 \
-  --output_dir "my_images" \
-  --device "auto" \
-  --steps 50 \
-  --guidance_scale 7.5 \
-  --seed 42
-```
-
-### Advanced Generation Script Options
+### Generation Script Options
 
 ```bash
 UV_NO_SYNC=1 uv run python generate.py \
@@ -135,8 +110,12 @@ UV_NO_SYNC=1 uv run python generate.py \
   --model_used "./checkpoints/my-model" \
   --prompt "Medical description" \
   --img_num 5 \
-  --device "auto" \
-  --num_inference_steps 50 \
+  --device "cpu" \
+  --num_inference_steps 15 \
+  --precision "float32" \
+  --height 256 \
+  --width 256 \
+  --scheduler "dpm" \
   --output_dir "generated_images"
 ```
 
@@ -176,8 +155,7 @@ Edit `scripts/train.sh` to customize:
 
 ```
 CS787/
-├── generate.py              # Advanced generation script
-├── simple_generate.py        # Simple generation script
+├── generate.py              # Medical image generation script
 ├── scripts/
 │   ├── train.sh             # Training script
 │   └── generate.sh          # Example generation script
@@ -196,32 +174,32 @@ CS787/
 
 ```bash
 # Chest X-ray
-UV_NO_SYNC=1 uv run python simple_generate.py --prompt "bilateral pneumonia" --modality "CXR"
+UV_NO_SYNC=1 uv run python generate.py --use_pretrained_only --prompt "Chest X-ray: bilateral pneumonia" --img_num 3 --device cpu
 
 # Brain MRI
-UV_NO_SYNC=1 uv run python simple_generate.py --prompt "brain tumor in frontal lobe" --modality "MRI"
+UV_NO_SYNC=1 uv run python generate.py --use_pretrained_only --prompt "Brain MRI: tumor in frontal lobe" --img_num 2 --device cpu
 
 # Fundus
-UV_NO_SYNC=1 uv run python simple_generate.py --prompt "diabetic retinopathy" --modality "Fundus"
+UV_NO_SYNC=1 uv run python generate.py --use_pretrained_only --prompt "Fundus: diabetic retinopathy" --img_num 1 --device cpu
 
 # CT scan
-UV_NO_SYNC=1 uv run python simple_generate.py --prompt "lung nodule" --modality "CT"
+UV_NO_SYNC=1 uv run python generate.py --use_pretrained_only --prompt "Chest CT: lung nodule" --img_num 2 --device cpu
 
 # OCT
-UV_NO_SYNC=1 uv run python simple_generate.py --prompt "macular degeneration" --modality "OCT"
+UV_NO_SYNC=1 uv run python generate.py --use_pretrained_only --prompt "OCT: macular degeneration" --img_num 1 --device cpu
 ```
 
 ### Batch Generation
 
 ```bash
 # Generate multiple images with different prompts
-UV_NO_SYNC=1 uv run python simple_generate.py --prompt "normal chest X-ray" --modality "CXR" --num_images 10 --output_dir "normal_cxr"
-UV_NO_SYNC=1 uv run python simple_generate.py --prompt "pneumonia chest X-ray" --modality "CXR" --num_images 10 --output_dir "pneumonia_cxr"
+UV_NO_SYNC=1 uv run python generate.py --use_pretrained_only --prompt "Chest X-ray: normal lung fields" --img_num 10 --device cpu --output_dir "normal_cxr"
+UV_NO_SYNC=1 uv run python generate.py --use_pretrained_only --prompt "Chest X-ray: pneumonia" --img_num 10 --device cpu --output_dir "pneumonia_cxr"
 ```
 
 ## Next Steps
 
-1. **Start with simple generation** using `simple_generate.py`
+1. **Start with medical image generation** using `generate.py`
 2. **Experiment with different prompts** and modalities
 3. **Train your own model** if you have custom medical data
 4. **Integrate with your workflow** using the generated images
