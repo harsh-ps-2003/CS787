@@ -3,6 +3,7 @@
 
 import torch
 from diffusers import StableDiffusionPipeline
+from diffusers.schedulers import DPMSolverMultistepScheduler
 from diffusers.models.attention_processor import AttnProcessor
 from typing import List, Dict, Tuple
 import logging
@@ -22,6 +23,10 @@ class SyntheticSystem:
             safety_checker=None,
             use_safetensors=True
         )
+        try:
+            self.model.scheduler = DPMSolverMultistepScheduler.from_config(self.model.scheduler.config)
+        except Exception:
+            pass
 
         use_half = (self.device.type == "cuda" and self.config["device"]["precision"] == "float16")
         self.model = move_to_device(self.model, self.device, use_half=use_half)

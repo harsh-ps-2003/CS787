@@ -5,6 +5,12 @@ from diffusers import (
     UNet2DConditionModel,
     StableDiffusionImg2ImgPipeline,
 )
+from diffusers.schedulers import (
+    DPMSolverMultistepScheduler,
+    EulerAncestralDiscreteScheduler,
+    EulerDiscreteScheduler,
+    PNDMScheduler,
+)
 from diffusers.models.attention_processor import AttnProcessor
 import torch
 from PIL import Image
@@ -80,6 +86,13 @@ def parse_args():
         action="store_true",
         help="Use only the pretrained model without any fine-tuned components."
     )
+    parser.add_argument(
+        "--scheduler",
+        type=str,
+        default="dpm",
+        choices=["dpm", "euler_a", "euler", "pndm"],
+        help="Diffusion scheduler to use (default: dpm)."
+    )
     args = parser.parse_args()
     return args
 
@@ -135,6 +148,18 @@ def load_model(args):
                 requires_safety_checker=False,
                 use_safetensors=True
             ).to(args.device)
+        # Swap scheduler to a safer default
+        try:
+            if args.scheduler == "dpm":
+                pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
+            elif args.scheduler == "euler_a":
+                pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe.scheduler.config)
+            elif args.scheduler == "euler":
+                pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
+            elif args.scheduler == "pndm":
+                pipe.scheduler = PNDMScheduler.from_config(pipe.scheduler.config)
+        except Exception:
+            pass
         # Memory optimizations for moderate GPUs
         try:
             pipe.enable_attention_slicing()
