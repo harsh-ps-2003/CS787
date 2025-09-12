@@ -56,6 +56,25 @@ def parse_args():
         help="How many steps taken when model generates each image."
     )
     parser.add_argument(
+        "--precision",
+        type=str,
+        default="float16",
+        choices=["float16", "float32"],
+        help="Computation precision for the diffusion pipeline (default: float16)."
+    )
+    parser.add_argument(
+        "--height",
+        type=int,
+        default=256,
+        help="Output image height (default: 256)."
+    )
+    parser.add_argument(
+        "--width",
+        type=int,
+        default=256,
+        help="Output image width (default: 256)."
+    )
+    parser.add_argument(
         "--use_pretrained_only",
         action="store_true",
         help="Use only the pretrained model without any fine-tuned components."
@@ -92,12 +111,15 @@ def validate_paths(args):
 def load_model(args):
     """Load the model pipeline with proper error handling."""
     try:
+        torch_dtype = torch.float16 if args.precision == "float16" else torch.float32
         if args.use_pretrained_only or not args.model_used:
             print(f"Loading pretrained model: {args.pretrained_model}")
             pipe = StableDiffusionPipeline.from_pretrained(
-                args.pretrained_model, 
+                args.pretrained_model,
+                torch_dtype=torch_dtype,
                 safety_checker=None,
-                requires_safety_checker=False
+                requires_safety_checker=False,
+                use_safetensors=True
             ).to(args.device)
         else:
             print(f"Loading fine-tuned model from: {args.model_used}")
@@ -105,11 +127,19 @@ def load_model(args):
             unet = UNet2DConditionModel.from_pretrained(unet_path)
             
             pipe = StableDiffusionPipeline.from_pretrained(
-                args.pretrained_model, 
+                args.pretrained_model,
                 unet=unet, 
+                torch_dtype=torch_dtype,
                 safety_checker=None,
-                requires_safety_checker=False
+                requires_safety_checker=False,
+                use_safetensors=True
             ).to(args.device)
+        # Memory optimizations for moderate GPUs
+        try:
+            pipe.enable_attention_slicing()
+            pipe.enable_vae_tiling()
+        except Exception:
+            pass
         
         return pipe
     except Exception as e:
@@ -169,7 +199,9 @@ def main():
             image = pipe(
                 prompt=args.prompt, 
                 num_inference_steps=args.num_inference_steps,
-                guidance_scale=7.5  # Standard CFG scale
+                guidance_scale=7.5,  # Standard CFG scale
+                height=args.height,
+                width=args.width
             ).images[0]
             
             output_path = os.path.join(args.output_dir, f"generated_{i+1}.png")

@@ -24,6 +24,12 @@ class SyntheticSystem:
 
         use_half = (self.device.type == "cuda" and self.config["device"]["precision"] == "float16")
         self.model = move_to_device(self.model, self.device, use_half=use_half)
+        # Memory optimizations for moderate VRAM GPUs
+        try:
+            self.model.enable_attention_slicing()
+            self.model.enable_vae_tiling()
+        except Exception:
+            pass
         
         if config["synthetic_system"]["enable_training"]:
             self.optimizer = torch.optim.Adam(
@@ -56,6 +62,8 @@ class SyntheticSystem:
                     prompt,
                     num_inference_steps=self.config["synthetic_system"]["num_inference_steps"],
                     guidance_scale=self.config["synthetic_system"]["guidance_scale"],
+                    height=self.config["synthetic_system"]["image_size"][0],
+                    width=self.config["synthetic_system"]["image_size"][1],
                     output_type="pil"
                 ).images[0]
                 
