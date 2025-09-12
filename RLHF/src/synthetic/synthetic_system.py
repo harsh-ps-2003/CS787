@@ -3,6 +3,7 @@
 
 import torch
 from diffusers import StableDiffusionPipeline
+from diffusers.models.attention_processor import AttnProcessor
 from typing import List, Dict, Tuple
 import logging
 from ..utils.device_utils import get_device, move_to_device
@@ -31,6 +32,18 @@ class SyntheticSystem:
             self.model.enable_vae_tiling()
             # Stabilize VAE in float32 to avoid fp16 segfaults on older GPUs
             self.model.vae.to(dtype=torch.float32)
+            # Force classic attention (avoid SDPA/Flash kernels)
+            try:
+                self.model.unet.set_attn_processor(AttnProcessor())
+            except Exception:
+                pass
+            try:
+                if torch.cuda.is_available():
+                    torch.backends.cuda.enable_flash_sdp(False)
+                    torch.backends.cuda.enable_mem_efficient_sdp(False)
+                    torch.backends.cuda.enable_math_sdp(True)
+            except Exception:
+                pass
         except Exception:
             pass
         

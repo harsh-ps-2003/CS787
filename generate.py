@@ -5,6 +5,7 @@ from diffusers import (
     UNet2DConditionModel,
     StableDiffusionImg2ImgPipeline,
 )
+from diffusers.models.attention_processor import AttnProcessor
 import torch
 from PIL import Image
 import os
@@ -141,6 +142,18 @@ def load_model(args):
             pipe.enable_vae_tiling()
             # Many Pascal-era GPUs (e.g., TITAN Xp) are unstable with VAE in fp16
             pipe.vae.to(dtype=torch.float32)
+            # Force classic attention (avoid PyTorch SDPA/Flash attention which may segfault)
+            try:
+                pipe.unet.set_attn_processor(AttnProcessor())
+            except Exception:
+                pass
+            try:
+                if torch.cuda.is_available():
+                    torch.backends.cuda.enable_flash_sdp(False)
+                    torch.backends.cuda.enable_mem_efficient_sdp(False)
+                    torch.backends.cuda.enable_math_sdp(True)
+            except Exception:
+                pass
         except Exception:
             pass
         
