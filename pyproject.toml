@@ -5,18 +5,19 @@ description = "CS787 Project"
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
 dependencies = [
-  "torch==2.3.0",
-  "torchvision==0.18.0",
-  "transformers>=4.44.0",
+  # CUDA 11.8 Pascal-friendly stack (tested on TITAN Xp)
+  "torch==2.1.2",
+  "torchvision==0.16.2",
+  "transformers==4.38.2",
+  "diffusers==0.27.2",
+  "tokenizers==0.15.2",
+  "huggingface-hub==0.25.2",
+  "accelerate>=1.0.0",
   "datasets>=2.14.0",
   "einops>=0.7.0",
-  "diffusers==0.30.0",
-  "accelerate>=0.34.0",
-  "huggingface-hub>=0.23.0",
   "safetensors>=0.4.2",
-  "tokenizers>=0.19.1",
   "pandas>=2.1.0",
-  "numpy>=1.26,<2.0",
+  "numpy<2.0",
   "pillow>=10.3.0",
   "scikit-image>=0.22.0",
   "clean-fid>=0.1.35",
@@ -26,18 +27,6 @@ dependencies = [
   "pydicom>=2.4.4",
   "nibabel>=5.2.1",
   "scipy>=1.12.0",
-  # Explicitly exclude CUDA 12 packages
-  "nvidia-cublas-cu11>=11.11.3.6",
-  "nvidia-cuda-cupti-cu11>=11.8.87",
-  "nvidia-cuda-nvrtc-cu11>=11.8.89",
-  "nvidia-cuda-runtime-cu11>=11.8.89",
-  "nvidia-cudnn-cu11>=8.7.0.84",
-  "nvidia-cufft-cu11>=10.9.0.58",
-  "nvidia-curand-cu11>=10.3.0.86",
-  "nvidia-cusolver-cu11>=11.4.1.48",
-  "nvidia-cusparse-cu11>=11.7.5.86",
-  "nvidia-nccl-cu11>=2.20.5",
-  "nvidia-nvtx-cu11>=11.8.86",
 ]
 
 [project.optional-dependencies]

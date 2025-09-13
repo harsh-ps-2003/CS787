@@ -546,14 +546,17 @@ libcudnn.so.8.9.1.23
 
 ### Install project with CUDA 11.8-compatible PyTorch
 
-`pyproject.toml` pins versions compatible with CUDA 11.8 for Python 3.11
+`pyproject.toml` pins a Pascal-friendly stack for CUDA 11.8 (tested on TITAN Xp):
+- torch 2.1.2 + cu118, torchvision 0.16.2 + cu118
+- diffusers 0.27.2, transformers 4.38.2, tokenizers 0.15.2
+- huggingface-hub 0.25.2, numpy < 2.0
 
 Install:
 
 ```bash
 uv venv
 # Install PyTorch with CUDA 11.8 support first
-uv pip install torch==2.3.0 torchvision==0.18.0 --index-url https://download.pytorch.org/whl/cu118
+uv pip install torch==2.1.2 torchvision==0.16.2 --index-url https://download.pytorch.org/whl/cu118
 # Then install the rest of the project (this will use the CUDA 11.8 PyTorch)
 uv pip install -e .
 ```
@@ -561,10 +564,13 @@ uv pip install -e .
 ```bash
 # Force reinstall with CUDA 11.8 constraints
 uv pip install -e . --force-reinstall --no-deps
-uv pip install --index-url https://download.pytorch.org/whl/cu118 transformers datasets einops diffusers accelerate huggingface-hub safetensors tokenizers pandas pillow scikit-image clean-fid pyyaml tqdm wandb pydicom nibabel scipy
+uv pip install --index-url https://download.pytorch.org/whl/cu118 \
+  transformers==4.38.2 datasets einops diffusers==0.27.2 accelerate \
+  huggingface-hub==0.25.2 safetensors tokenizers==0.15.2 pandas pillow \
+  scikit-image clean-fid pyyaml tqdm wandb pydicom nibabel scipy "numpy<2.0"
 ```
 
-This ensures PyTorch installs with CUDA 11.8 support instead of CUDA 12.
+This ensures PyTorch installs with CUDA 11.8 support and versions stable on Pascal GPUs.
 
 ### GPU sanity checks
 
