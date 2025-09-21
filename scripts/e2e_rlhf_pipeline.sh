@@ -52,7 +52,7 @@ step() {
 ensure_example_dataset() {
   local default_csv="${REPO_ROOT}/datasets/example/example_data.csv"
   if [ -f "${default_csv}" ]; then
-    echo "[E2E] Found dataset CSV: ${default_csv}"
+    echo "[E2E] Found dataset CSV: ${default_csv}" >&2
     echo "${default_csv}"
     return 0
   fi
