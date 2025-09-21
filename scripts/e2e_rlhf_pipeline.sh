@@ -49,7 +49,7 @@ step() {
 step "Step 1: Fine-tune Stable Diffusion UNet"
 pushd "$(dirname "$0")" >/dev/null
 echo "[E2E] Launching scripts/train.sh"
-CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES}" bash ./train.sh
+CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES}" UV_NO_SYNC=1 uv run bash ./train.sh
 popd >/dev/null
 
 # -----------------------------
