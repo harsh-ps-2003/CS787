@@ -21,6 +21,7 @@ RLHF_CONFIG_PATH="${RLHF_CONFIG_PATH:-${REPO_ROOT}/config.yaml}"
 BASE_PROMPT="${BASE_PROMPT:-Chest X-ray: normal lung fields without infiltrates}"
 NUM_IMAGES="${NUM_IMAGES:-3}"
 E2E_OUTPUT_DIR="${E2E_OUTPUT_DIR:-${REPO_ROOT}/generated_e2e}"
+AUTOPICK_GPU="${AUTOPICK_GPU:-1}"
 
 echo "[E2E] CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES}"
 echo "[E2E] DEVICE=${DEVICE}"
@@ -35,6 +36,29 @@ echo "[E2E] E2E_OUTPUT_DIR=${E2E_OUTPUT_DIR}"
 if command -v nvidia-smi >/dev/null 2>&1; then
   GPU_COUNT=$(nvidia-smi --list-gpus | wc -l | tr -d ' ')
   echo "[E2E] Detected ${GPU_COUNT} NVIDIA GPU(s)"
+  if [ "${AUTOPICK_GPU}" = "1" ]; then
+    # Auto-pick the GPU with the most free memory to reduce OOM risk.
+    mapfile -t FREE_MEM < <(nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits)
+    best_idx=0
+    best_free=0
+    for i in "${!FREE_MEM[@]}"; do
+      if [ "${FREE_MEM[$i]}" -gt "$best_free" ]; then
+        best_free="${FREE_MEM[$i]}"
+        best_idx="$i"
+      fi
+    done
+    # If best free memory is low (< 2000 MiB), restrict to a single, best GPU.
+    if [ "$best_free" -lt 2000 ]; then
+      echo "[E2E] Low free VRAM detected (${best_free} MiB). Using single GPU ${best_idx}." >&2
+      CUDA_VISIBLE_DEVICES="$best_idx"
+      DEVICE="cuda:0"
+    else
+      # Prefer the least-loaded single GPU anyway for stability during fine-tuning
+      echo "[E2E] Using the least-loaded GPU ${best_idx} (free ${best_free} MiB) for fine-tuning." >&2
+      CUDA_VISIBLE_DEVICES="$best_idx"
+      DEVICE="cuda:0"
+    fi
+  fi
 else
   echo "[E2E] No NVIDIA GPUs detected; forcing CPU"
   DEVICE="cpu"

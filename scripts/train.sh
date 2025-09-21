@@ -45,7 +45,14 @@ echo "  Dataset CSV: ${DATASET_NAME}"
 echo "  Output dir: ${OUTPUT_DIR}"
 
 # Run training
-accelerate launch --num_processes=$NUM_GPUS --mixed_precision="fp16" "${SCRIPT_DIR}/../training/model.py" \
+# If we restricted to a single GPU upstream, ensure num_processes=1
+if [ "$NUM_GPUS" -gt 1 ]; then
+  NUM_PROCESSES="$NUM_GPUS"
+else
+  NUM_PROCESSES=1
+fi
+
+accelerate launch --num_processes=$NUM_PROCESSES --mixed_precision="fp16" "${SCRIPT_DIR}/../training/model.py" \
   --pretrained_model_name_or_path=$MODEL_NAME \
   --train_data_dir=$DATASET_NAME \
   --use_ema \
