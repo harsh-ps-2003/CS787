@@ -12,13 +12,15 @@ export USE_EMA="${USE_EMA:-0}"
 export ENABLE_XFORMERS="${ENABLE_XFORMERS:-0}"
 export RESOLUTION="${RESOLUTION:-256}"
 export DATALOADER_NUM_WORKERS="${DATALOADER_NUM_WORKERS:-0}"
+export REPORT_TO="${REPORT_TO:-none}"
 
 # GPU Configuration
 NUM_GPUS=$(echo $CUDA_VISIBLE_DEVICES | tr ',' '\n' | wc -l)
 echo "Using $NUM_GPUS GPU(s): $CUDA_VISIBLE_DEVICES"
 
 # Conservative allocator to reduce fragmentation on smaller GPUs (e.g., 12GB)
-export PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:64,expandable_segments:True,garbage_collection_threshold:0.6"
+# Keep it simple to avoid allocator asserts on older drivers
+export PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:32"
 
 # Create output directory (respect env override, default under repo root)
 export OUTPUT_DIR="${OUTPUT_DIR:-${SCRIPT_DIR}/../checkpoints/medical-model}"
@@ -79,7 +81,7 @@ accelerate launch --num_processes=$NUM_PROCESSES --mixed_precision="fp16" "${SCR
   --validation_prompts "Chest X-ray: normal lung fields" "Brain MRI: normal anatomy" "Fundus: healthy retina" \
   --validation_epochs=5 \
   --output_dir="${OUTPUT_DIR}" \
-  --report_to="tensorboard" \
+  --report_to="${REPORT_TO}" \
   --checkpointing_steps=200 \
   --dataloader_num_workers=${DATALOADER_NUM_WORKERS} \
   --image_column="path" \
