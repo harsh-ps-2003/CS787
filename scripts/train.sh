@@ -8,13 +8,17 @@ export MODEL_NAME="${MODEL_NAME:-runwayml/stable-diffusion-v1-5}"
 export DATASET_NAME="${DATASET_NAME:-${SCRIPT_DIR}/../datasets/example/example_data.csv}"
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0,1}"  # Use both GPUs (0,1) or single GPU (0)
 export WANDB_MODE="offline"
+export USE_EMA="${USE_EMA:-0}"
+export ENABLE_XFORMERS="${ENABLE_XFORMERS:-0}"
+export RESOLUTION="${RESOLUTION:-256}"
+export DATALOADER_NUM_WORKERS="${DATALOADER_NUM_WORKERS:-0}"
 
 # GPU Configuration
 NUM_GPUS=$(echo $CUDA_VISIBLE_DEVICES | tr ',' '\n' | wc -l)
 echo "Using $NUM_GPUS GPU(s): $CUDA_VISIBLE_DEVICES"
 
 # Conservative allocator to reduce fragmentation on smaller GPUs (e.g., 12GB)
-export PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:64"
+export PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:64,expandable_segments:True,garbage_collection_threshold:0.6"
 
 # Create output directory (respect env override, default under repo root)
 export OUTPUT_DIR="${OUTPUT_DIR:-${SCRIPT_DIR}/../checkpoints/medical-model}"
@@ -41,6 +45,10 @@ echo "Training configuration:"
 echo "  Batch size: $TRAIN_BATCH_SIZE"
 echo "  Gradient accumulation steps: $GRADIENT_ACCUMULATION_STEPS"
 echo "  Mixed precision: fp16"
+echo "  Resolution: ${RESOLUTION}"
+echo "  Use EMA: ${USE_EMA}"
+echo "  Enable xformers: ${ENABLE_XFORMERS}"
+echo "  DataLoader workers: ${DATALOADER_NUM_WORKERS}"
 echo "  Dataset CSV: ${DATASET_NAME}"
 echo "  Output dir: ${OUTPUT_DIR}"
 
@@ -52,11 +60,14 @@ else
   NUM_PROCESSES=1
 fi
 
+EXTRA_FLAGS=()
+if [ "${USE_EMA}" = "1" ]; then EXTRA_FLAGS+=(--use_ema); fi
+if [ "${ENABLE_XFORMERS}" = "1" ]; then EXTRA_FLAGS+=(--enable_xformers_memory_efficient_attention); fi
+
 accelerate launch --num_processes=$NUM_PROCESSES --mixed_precision="fp16" "${SCRIPT_DIR}/../training/model.py" \
   --pretrained_model_name_or_path=$MODEL_NAME \
   --train_data_dir=$DATASET_NAME \
-  --use_ema \
-  --resolution=256 --center_crop --random_flip \
+  --resolution=${RESOLUTION} --center_crop --random_flip \
   --train_batch_size=$TRAIN_BATCH_SIZE \
   --gradient_accumulation_steps=$GRADIENT_ACCUMULATION_STEPS \
   --gradient_checkpointing \
@@ -70,5 +81,7 @@ accelerate launch --num_processes=$NUM_PROCESSES --mixed_precision="fp16" "${SCR
   --output_dir="${OUTPUT_DIR}" \
   --report_to="tensorboard" \
   --checkpointing_steps=200 \
+  --dataloader_num_workers=${DATALOADER_NUM_WORKERS} \
   --image_column="path" \
-  --caption_column="Text"
+  --caption_column="Text" \
+  ${EXTRA_FLAGS[@]}

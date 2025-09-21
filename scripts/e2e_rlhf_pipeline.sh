@@ -138,7 +138,14 @@ fi
 echo "[E2E] Using dataset CSV: ${DATASET_CSV}"
 pushd "${REPO_ROOT}" >/dev/null
 echo "[E2E] Launching scripts/train.sh from repo root"
-CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES}" DATASET_NAME="${DATASET_CSV}" UV_NO_SYNC=1 uv run bash ./scripts/train.sh
+# Favor stability on constrained VRAM
+CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES}" \
+  DATASET_NAME="${DATASET_CSV}" \
+  TRAIN_BATCH_SIZE="${TRAIN_BATCH_SIZE:-1}" \
+  GRADIENT_ACCUMULATION_STEPS="${GRADIENT_ACCUMULATION_STEPS:-16}" \
+  ENABLE_XFORMERS="${ENABLE_XFORMERS:-1}" \
+  DATALOADER_NUM_WORKERS="${DATALOADER_NUM_WORKERS:-0}" \
+  UV_NO_SYNC=1 uv run bash ./scripts/train.sh
 popd >/dev/null
 
 # -----------------------------
