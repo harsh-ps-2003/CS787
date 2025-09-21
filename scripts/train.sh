@@ -13,6 +13,9 @@ export WANDB_MODE="offline"
 NUM_GPUS=$(echo $CUDA_VISIBLE_DEVICES | tr ',' '\n' | wc -l)
 echo "Using $NUM_GPUS GPU(s): $CUDA_VISIBLE_DEVICES"
 
+# Conservative allocator to reduce fragmentation on smaller GPUs (e.g., 12GB)
+export PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:64"
+
 # Create output directory (respect env override, default under repo root)
 export OUTPUT_DIR="${OUTPUT_DIR:-${SCRIPT_DIR}/../checkpoints/medical-model}"
 mkdir -p "${OUTPUT_DIR}"
@@ -22,13 +25,16 @@ if [ -d "${OUTPUT_DIR}/validation" ]; then
   rm -rf "${OUTPUT_DIR}/validation"
 fi
 
-# Adjust batch size based on number of GPUs
-if [ $NUM_GPUS -eq 2 ]; then
-    TRAIN_BATCH_SIZE=8  # Larger batch size for 2 GPUs
-    GRADIENT_ACCUMULATION_STEPS=2
-else
-    TRAIN_BATCH_SIZE=4  # Smaller batch size for 1 GPU
-    GRADIENT_ACCUMULATION_STEPS=4
+# Adjust batch size based on number of GPUs (allow env override)
+if [ -z "${TRAIN_BATCH_SIZE:-}" ] || [ -z "${GRADIENT_ACCUMULATION_STEPS:-}" ]; then
+    if [ $NUM_GPUS -ge 2 ]; then
+        # Very conservative per-GPU batch size to avoid OOM on 12GB GPUs
+        TRAIN_BATCH_SIZE=${TRAIN_BATCH_SIZE:-1}
+        GRADIENT_ACCUMULATION_STEPS=${GRADIENT_ACCUMULATION_STEPS:-8}
+    else
+        TRAIN_BATCH_SIZE=${TRAIN_BATCH_SIZE:-1}
+        GRADIENT_ACCUMULATION_STEPS=${GRADIENT_ACCUMULATION_STEPS:-16}
+    fi
 fi
 
 echo "Training configuration:"
