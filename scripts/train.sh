@@ -16,6 +16,11 @@ echo "Using $NUM_GPUS GPU(s): $CUDA_VISIBLE_DEVICES"
 # Create output directory (respect env override, default under repo root)
 export OUTPUT_DIR="${OUTPUT_DIR:-${SCRIPT_DIR}/../checkpoints/medical-model}"
 mkdir -p "${OUTPUT_DIR}"
+# Remove stale validation dir to avoid FileExistsError in training/model.py
+if [ -d "${OUTPUT_DIR}/validation" ]; then
+  echo "Removing stale validation dir: ${OUTPUT_DIR}/validation"
+  rm -rf "${OUTPUT_DIR}/validation"
+fi
 
 # Adjust batch size based on number of GPUs
 if [ $NUM_GPUS -eq 2 ]; then
