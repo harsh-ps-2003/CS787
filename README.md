@@ -416,10 +416,10 @@ E2E_OUTPUT_DIR=generated_e2e_mri \
 bash e2e_rlhf_pipeline.sh
 ```
 
-Defaults used by the script (kept simple for stability):
+Defaults used by the script (kept simple for 12GB VRAM):
 - **GPU selection**: auto-picks the least-loaded single GPU, overrides to `CUDA_VISIBLE_DEVICES=<id>` to pin
-- **Batch/accumulation**: `TRAIN_BATCH_SIZE=1`, `GRADIENT_ACCUMULATION_STEPS=16`
-- **Resolution**: `RESOLUTION=224` (lower VRAM footprint)
+- **Batch/accumulation**: `TRAIN_BATCH_SIZE=1`, `GRADIENT_ACCUMULATION_STEPS=32`
+- **Resolution**: `RESOLUTION=128` (very low VRAM footprint)
 - **xFormers**: disabled by default (`ENABLE_XFORMERS=0`); enable with `ENABLE_XFORMERS=1` if installed
 - **EMA**: disabled by default (`USE_EMA=0`)
 - **UNet output**: `./checkpoints/medical-model`
