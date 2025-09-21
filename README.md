@@ -416,8 +416,12 @@ E2E_OUTPUT_DIR=generated_e2e_mri \
 bash e2e_rlhf_pipeline.sh
 ```
 
-Defaults used by the script:
-- **CUDA device**: `CUDA_VISIBLE_DEVICES=0,1`, `DEVICE=cuda:0` (uses both GPUs, falls back to CPU if no GPU)
+Defaults used by the script (kept simple for stability):
+- **GPU selection**: auto-picks the least-loaded single GPU, overrides to `CUDA_VISIBLE_DEVICES=<id>` to pin
+- **Batch/accumulation**: `TRAIN_BATCH_SIZE=1`, `GRADIENT_ACCUMULATION_STEPS=16`
+- **Resolution**: `RESOLUTION=224` (lower VRAM footprint)
+- **xFormers**: disabled by default (`ENABLE_XFORMERS=0`); enable with `ENABLE_XFORMERS=1` if installed
+- **EMA**: disabled by default (`USE_EMA=0`)
 - **UNet output**: `./checkpoints/medical-model`
 - **RLHF config**: `./config.yaml`
 - **Prompt**: `Chest X-ray: normal lung fields without infiltrates`
