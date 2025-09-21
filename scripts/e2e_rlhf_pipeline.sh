@@ -48,48 +48,58 @@ step() {
   echo "==================== $1 ===================="
 }
 
-# Build a minimal example CSV from generated_* images if none exists
+# Build a minimal, valid CSV from generated_* images if available.
+# Returns path to a CSV that is safe to parse (fields quoted). Falls back to existing CSV if no images found.
 ensure_example_dataset() {
   local default_csv="${REPO_ROOT}/datasets/example/example_data.csv"
-  if [ -f "${default_csv}" ]; then
-    echo "[E2E] Found dataset CSV: ${default_csv}" >&2
-    echo "${default_csv}"
-    return 0
-  fi
-
-  echo "[E2E] No example CSV found, attempting to create from generated_* images" >&2
+  local curated_csv="${REPO_ROOT}/datasets/example/example_generated.csv"
   mkdir -p "${REPO_ROOT}/datasets/example"
-  local tmp_csv="${default_csv}.tmp"
+
+  # Try to build curated CSV from generated outputs first
+  echo "[E2E] Attempting to create curated CSV from generated_* images" >&2
+  local tmp_csv="${curated_csv}.tmp"
   echo "path,Text,modality" > "${tmp_csv}"
 
-  # Collect up to 50 images from generated_* directories
   local count=0
   shopt -s nullglob
   for img in "${REPO_ROOT}"/generated_*/*.{png,jpg,jpeg,JPG,JPEG,PNG}; do
-    if [ $count -ge 50 ]; then break; fi
-    # modality from parent directory name
+    if [ $count -ge 200 ]; then break; fi
     local parent
     parent=$(basename "$(dirname "${img}")")
-    # Convert parent like generated_cxr_normal -> modality label
+    local modality_raw
+    modality_raw=${parent#generated_}
     local modality
-    modality=$(echo "${parent#generated_}" | tr '_' ' ')
+    modality=$(echo "${modality_raw}" | tr '_' ' ')
     local text
     text="${modality}: synthetic sample"
-    # Escape commas in text if any
-    echo "${img},${text},${modality}" >> "${tmp_csv}"
+
+    # CSV quoting for safety: escape embedded quotes and wrap in double quotes
+    local q_path q_text q_modality
+    q_path="\"${img//\"/\"\"}\""
+    q_text="\"${text//\"/\"\"}\""
+    q_modality="\"${modality//\"/\"\"}\""
+
+    echo "${q_path},${q_text},${q_modality}" >> "${tmp_csv}"
     count=$((count+1))
   done
   shopt -u nullglob
 
-  if [ $count -eq 0 ]; then
-    echo "[E2E] ERROR: Could not find any images under generated_* to seed example CSV" >&2
-    echo ""  # return empty string
+  if [ $count -gt 0 ]; then
+    mv "${tmp_csv}" "${curated_csv}"
+    echo "[E2E] Wrote curated dataset CSV with ${count} rows: ${curated_csv}" >&2
+    echo "${curated_csv}"
+    return 0
+  else
+    rm -f "${tmp_csv}"
+    if [ -f "${default_csv}" ]; then
+      echo "[E2E] No generated images found. Falling back to existing CSV: ${default_csv}" >&2
+      echo "${default_csv}"
+      return 0
+    fi
+    echo "[E2E] ERROR: No dataset available. Create generated images or provide datasets/example/example_data.csv" >&2
+    echo ""
     return 1
   fi
-
-  mv "${tmp_csv}" "${default_csv}"
-  echo "[E2E] Wrote example dataset CSV with ${count} rows: ${default_csv}" >&2
-  echo "${default_csv}"
 }
 
 # -----------------------------
