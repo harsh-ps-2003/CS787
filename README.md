@@ -396,6 +396,34 @@ UV_NO_SYNC=1 uv run python RLHF/generate.py \
 **For quality-filtered outputs**: Run Steps 4 → 5
 **For full pipeline**: Run all steps in sequence
 
+### One-command End-to-End Pipeline (Fine-tuning → RLHF → Generate)
+
+To run the complete pipeline that fine-tunes the Stable Diffusion UNet, trains the RLHF policy/selector, and generates images with the fine-tuned model:
+
+```bash
+cd scripts
+bash e2e_rlhf_pipeline.sh
+```
+
+Environment overrides (optional):
+
+```bash
+# Example: use GPU 1, change prompt, and output directory
+CUDA_VISIBLE_DEVICES=1 \
+BASE_PROMPT="Brain MRI: T1-weighted image showing normal anatomy" \
+NUM_IMAGES=4 \
+E2E_OUTPUT_DIR=generated_e2e_mri \
+bash e2e_rlhf_pipeline.sh
+```
+
+Defaults used by the script:
+- **CUDA device**: `CUDA_VISIBLE_DEVICES=0,1`, `DEVICE=cuda:0` (uses both GPUs, falls back to CPU if no GPU)
+- **UNet output**: `./checkpoints/medical-model`
+- **RLHF config**: `./config.yaml`
+- **Prompt**: `Chest X-ray: normal lung fields without infiltrates`
+- **Images**: `3`
+- **Output dir**: `generated_e2e/finetuned`
+
 ### Generation Workflow
 
 #### Baseline Generation Flow

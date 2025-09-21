@@ -192,9 +192,8 @@ UV_NO_SYNC=1 uv run python generate.py --use_pretrained_only --prompt "OCT: macu
 ### Batch Generation
 
 ```bash
-# Generate multiple images with different prompts
-UV_NO_SYNC=1 uv run python generate.py --use_pretrained_only --prompt "Chest X-ray: normal lung fields" --img_num 10 --device cpu --output_dir "normal_cxr"
-UV_NO_SYNC=1 uv run python generate.py --use_pretrained_only --prompt "Chest X-ray: pneumonia" --img_num 10 --device cpu --output_dir "pneumonia_cxr"
+chmod +x generate_all_modalities.sh
+./generate_all_modalities.sh
 ```
 
 ## Next Steps
