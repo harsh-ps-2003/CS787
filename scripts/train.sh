@@ -6,7 +6,7 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 export MODEL_NAME="${MODEL_NAME:-runwayml/stable-diffusion-v1-5}"
 export DATASET_NAME="${DATASET_NAME:-${SCRIPT_DIR}/../datasets/example/example_data.csv}"
-export CUDA_VISIBLE_DEVICES="0,1"  # Use both GPUs (0,1) or single GPU (0)
+export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0,1}"  # Use both GPUs (0,1) or single GPU (0)
 export WANDB_MODE="offline"
 
 # GPU Configuration
@@ -34,7 +34,7 @@ echo "  Dataset CSV: ${DATASET_NAME}"
 echo "  Output dir: ${OUTPUT_DIR}"
 
 # Run training
-accelerate launch --num_processes=$NUM_GPUS --mixed_precision="fp16" ../training/model.py \
+accelerate launch --num_processes=$NUM_GPUS --mixed_precision="fp16" "${SCRIPT_DIR}/../training/model.py" \
   --pretrained_model_name_or_path=$MODEL_NAME \
   --train_data_dir=$DATASET_NAME \
   --use_ema \

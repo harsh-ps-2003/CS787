@@ -57,7 +57,7 @@ ensure_example_dataset() {
     return 0
   fi
 
-  echo "[E2E] No example CSV found, attempting to create from generated_* images"
+  echo "[E2E] No example CSV found, attempting to create from generated_* images" >&2
   mkdir -p "${REPO_ROOT}/datasets/example"
   local tmp_csv="${default_csv}.tmp"
   echo "path,Text,modality" > "${tmp_csv}"
@@ -88,7 +88,7 @@ ensure_example_dataset() {
   fi
 
   mv "${tmp_csv}" "${default_csv}"
-  echo "[E2E] Wrote example dataset CSV with ${count} rows: ${default_csv}"
+  echo "[E2E] Wrote example dataset CSV with ${count} rows: ${default_csv}" >&2
   echo "${default_csv}"
 }
 
