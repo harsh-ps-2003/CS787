@@ -12,7 +12,7 @@ export USE_EMA="${USE_EMA:-0}"
 export ENABLE_XFORMERS="${ENABLE_XFORMERS:-0}"
 export RESOLUTION="${RESOLUTION:-256}"
 export DATALOADER_NUM_WORKERS="${DATALOADER_NUM_WORKERS:-0}"
-export REPORT_TO="${REPORT_TO:-none}"
+export REPORT_TO="${REPORT_TO:-}"
 
 # GPU Configuration
 NUM_GPUS=$(echo $CUDA_VISIBLE_DEVICES | tr ',' '\n' | wc -l)
@@ -66,6 +66,9 @@ EXTRA_FLAGS=()
 if [ "${USE_EMA}" = "1" ]; then EXTRA_FLAGS+=(--use_ema); fi
 if [ "${ENABLE_XFORMERS}" = "1" ]; then EXTRA_FLAGS+=(--enable_xformers_memory_efficient_attention); fi
 
+# Conditionally add logging backend only if explicitly requested (e.g., tensorboard, wandb)
+if [ -n "${REPORT_TO}" ]; then EXTRA_FLAGS+=(--report_to="${REPORT_TO}"); fi
+
 accelerate launch --num_processes=$NUM_PROCESSES --mixed_precision="fp16" "${SCRIPT_DIR}/../training/model.py" \
   --pretrained_model_name_or_path=$MODEL_NAME \
   --train_data_dir=$DATASET_NAME \
@@ -81,7 +84,6 @@ accelerate launch --num_processes=$NUM_PROCESSES --mixed_precision="fp16" "${SCR
   --validation_prompts "Chest X-ray: normal lung fields" "Brain MRI: normal anatomy" "Fundus: healthy retina" \
   --validation_epochs=5 \
   --output_dir="${OUTPUT_DIR}" \
-  --report_to="${REPORT_TO}" \
   --checkpointing_steps=200 \
   --dataloader_num_workers=${DATALOADER_NUM_WORKERS} \
   --image_column="path" \
