@@ -2,8 +2,10 @@
 # Automated training script for Stable Diffusion fine-tuning on medical images
 
 # Configuration - Customize these variables
-export MODEL_NAME="runwayml/stable-diffusion-v1-5"
-export DATASET_NAME="./datasets/example/example_data.csv"
+# Respect externally provided env values if set
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+export MODEL_NAME="${MODEL_NAME:-runwayml/stable-diffusion-v1-5}"
+export DATASET_NAME="${DATASET_NAME:-${SCRIPT_DIR}/../datasets/example/example_data.csv}"
 export CUDA_VISIBLE_DEVICES="0,1"  # Use both GPUs (0,1) or single GPU (0)
 export WANDB_MODE="offline"
 
@@ -11,8 +13,9 @@ export WANDB_MODE="offline"
 NUM_GPUS=$(echo $CUDA_VISIBLE_DEVICES | tr ',' '\n' | wc -l)
 echo "Using $NUM_GPUS GPU(s): $CUDA_VISIBLE_DEVICES"
 
-# Create output directory
-mkdir -p ./checkpoints/medical-model
+# Create output directory (respect env override, default under repo root)
+export OUTPUT_DIR="${OUTPUT_DIR:-${SCRIPT_DIR}/../checkpoints/medical-model}"
+mkdir -p "${OUTPUT_DIR}"
 
 # Adjust batch size based on number of GPUs
 if [ $NUM_GPUS -eq 2 ]; then
@@ -27,6 +30,8 @@ echo "Training configuration:"
 echo "  Batch size: $TRAIN_BATCH_SIZE"
 echo "  Gradient accumulation steps: $GRADIENT_ACCUMULATION_STEPS"
 echo "  Mixed precision: fp16"
+echo "  Dataset CSV: ${DATASET_NAME}"
+echo "  Output dir: ${OUTPUT_DIR}"
 
 # Run training
 accelerate launch --num_processes=$NUM_GPUS --mixed_precision="fp16" ../training/model.py \
@@ -44,7 +49,7 @@ accelerate launch --num_processes=$NUM_GPUS --mixed_precision="fp16" ../training
   --lr_warmup_steps=100 \
   --validation_prompts "Chest X-ray: normal lung fields" "Brain MRI: normal anatomy" "Fundus: healthy retina" \
   --validation_epochs=5 \
-  --output_dir="./checkpoints/medical-model" \
+  --output_dir="${OUTPUT_DIR}" \
   --report_to="tensorboard" \
   --checkpointing_steps=200 \
   --image_column="path" \
