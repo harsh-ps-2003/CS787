@@ -1,5 +1,15 @@
 ## CS787 Technical Report
 
+1) If your project is based on a paper:
+
+a) State that the paper is published in a reputed conference
+
+b) Mention if you could download/clone the repository, browse and build the source code and dataset
+
+c) Reproduce the results of the paper on a small subset of the dataset
+
+d) How close is your reproduction to what the authors reported in the paper?
+
 ### Scope
 Generate synthetic medical images based on textual descriptions and specified imaging modality (e.g., "breast with tumor, MRI"; "lung with pneumonia, chest X-ray").
 

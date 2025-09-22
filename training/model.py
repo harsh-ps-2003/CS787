@@ -157,6 +157,7 @@ def log_validation(vae, text_encoder, tokenizer, unet, args, accelerator, weight
         safety_checker=None,
         revision=args.revision,
         torch_dtype=weight_dtype,
+        local_files_only=True,
     )
     pipeline = pipeline.to(accelerator.device)
     pipeline.set_progress_bar_config(disable=True)
@@ -1031,13 +1032,27 @@ def main():
         if args.use_ema:
             ema_unet.copy_to(unet.parameters())
 
-        pipeline = StableDiffusionPipeline.from_pretrained(
-            args.pretrained_model_name_or_path,
-            text_encoder=text_encoder,
-            vae=vae,
-            unet=unet,
-            revision=args.revision,
-        )
+        try:
+            pipeline = StableDiffusionPipeline.from_pretrained(
+                args.pretrained_model_name_or_path,
+                text_encoder=text_encoder,
+                vae=vae,
+                unet=unet,
+                revision=args.revision,
+                local_files_only=True,
+            )
+        except Exception:
+            # Fallback to constructing pipeline directly from components if cache is incomplete
+            from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import StableDiffusionPipeline as SDP
+            pipeline = SDP(
+                vae=vae,
+                text_encoder=text_encoder,
+                tokenizer=tokenizer,
+                unet=unet,
+                scheduler=DDPMScheduler.from_pretrained(args.pretrained_model_name_or_path, subfolder="scheduler", local_files_only=True),
+                safety_checker=None,
+                feature_extractor=None,
+            )
         pipeline.save_pretrained(args.output_dir)
 
         # Run a final round of inference.
