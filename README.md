@@ -104,6 +104,15 @@ uv pip install --force-reinstall "diffusers==0.30.0"
 ```
 ```
 
+Optional (recommended on 12GB GPUs): enable 8-bit Adam (CUDA 11.8 wheel)
+```bash
+uv pip install 'bitsandbytes==0.41.1'
+# or use optional extra: uv pip install -e .[bnb]
+# If uv tries to pull cu12 provider packages, pin and build from source (CUDA 11.8):
+# CMAKE_ARGS="-DCUDA_ARCHITECTURES=61" CUDA_VERSION=118 BNB_CUDA_VERSION=118 \
+#   uv pip install --no-binary bitsandbytes 'bitsandbytes==0.41.1'
+```
+
 3) Run the app:
 ```bash
 UV_NO_SYNC=1 uv run python main.py

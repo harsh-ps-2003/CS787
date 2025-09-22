@@ -33,6 +33,11 @@ dependencies = [
 dev = [
   "ruff>=0.5.0",
 ]
+bnb = [
+  # 8-bit Adam optimizer to reduce optimizer state memory on GPUs
+  # CUDA 11.8-friendly release (avoids cu12 provider deps under uv)
+  "bitsandbytes==0.41.1",
+]
 
 # PyTorch CUDA 11.8 index for correct wheel resolution
 [[tool.uv.index]]

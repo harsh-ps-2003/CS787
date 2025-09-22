@@ -544,7 +544,8 @@ def main():
     if accelerator.is_main_process:
         if args.output_dir is not None:
             os.makedirs(args.output_dir, exist_ok=True)
-            os.mkdir(os.path.join(args.output_dir, 'validation'))
+            # Create validation dir idempotently to avoid FileExistsError on re-runs
+            os.makedirs(os.path.join(args.output_dir, 'validation'), exist_ok=True)
 
         if args.push_to_hub:
             repo_id = create_repo(
