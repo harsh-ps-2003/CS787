@@ -65,6 +65,8 @@ fi
 EXTRA_FLAGS=()
 if [ "${USE_EMA}" = "1" ]; then EXTRA_FLAGS+=(--use_ema); fi
 if [ "${ENABLE_XFORMERS}" = "1" ]; then EXTRA_FLAGS+=(--enable_xformers_memory_efficient_attention); fi
+# Reduce optimizer memory on 12GB GPUs via bitsandbytes 8-bit Adam when requested
+if [ "${USE_8BIT_ADAM:-0}" = "1" ]; then EXTRA_FLAGS+=(--use_8bit_adam); fi
 
 # Conditionally add logging backend only if explicitly requested (e.g., tensorboard, wandb)
 if [ -n "${REPORT_TO}" ]; then EXTRA_FLAGS+=(--report_to="${REPORT_TO}"); fi
