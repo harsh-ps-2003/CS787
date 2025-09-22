@@ -21,7 +21,7 @@ generate_images() {
     local output_dir="$2"
     
     echo "Generating: $output_dir"
-    python generate.py --use_pretrained_only \
+    UV_NO_SYNC=1 uv run python generate.py --use_pretrained_only \
         --pretrained_model "$MODEL" \
         --prompt "$prompt" \
         --img_num "$NUM_IMAGES" \
