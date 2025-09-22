@@ -27,6 +27,9 @@ dependencies = [
   "pydicom>=2.4.4",
   "nibabel>=5.2.1",
   "scipy>=1.12.0",
+  "triton==2.1.0",
+  # runtime build tools required by Triton at import time in some envs
+  "setuptools>=68",
 ]
 
 [project.optional-dependencies]

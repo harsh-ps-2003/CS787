@@ -109,8 +109,8 @@ Optional (recommended on 12GB GPUs): enable 8-bit Adam (CUDA 11.8 wheel)
 uv pip install 'bitsandbytes==0.41.1'
 # or use optional extra: uv pip install -e .[bnb]
 # If uv tries to pull cu12 provider packages, pin and build from source (CUDA 11.8):
-# CMAKE_ARGS="-DCUDA_ARCHITECTURES=61" CUDA_VERSION=118 BNB_CUDA_VERSION=118 \
-#   uv pip install --no-binary bitsandbytes 'bitsandbytes==0.41.1'
+CMAKE_ARGS="-DCUDA_ARCHITECTURES=61" CUDA_VERSION=118 BNB_CUDA_VERSION=118 \
+  uv pip install --no-binary bitsandbytes 'bitsandbytes==0.41.1'
 ```
 
 3) Run the app:
@@ -414,11 +414,15 @@ cd scripts
 bash e2e_rlhf_pipeline.sh
 ```
 
-Environment overrides (optional):
+Environment overrides (optional, CUDA 11.8 safe defaults baked in):
 
 ```bash
-# Example: use GPU 1, change prompt, and output directory
+# Example: use GPU 1, offline mode, allocator tuning, 8-bit Adam
 CUDA_VISIBLE_DEVICES=1 \
+AUTOPICK_GPU=0 \
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:64" \
+USE_8BIT_ADAM=1 \
 BASE_PROMPT="Brain MRI: T1-weighted image showing normal anatomy" \
 NUM_IMAGES=4 \
 E2E_OUTPUT_DIR=generated_e2e_mri \

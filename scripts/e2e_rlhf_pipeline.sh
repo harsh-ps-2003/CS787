@@ -33,6 +33,7 @@ echo "[E2E] NUM_IMAGES=${NUM_IMAGES}"
 echo "[E2E] E2E_OUTPUT_DIR=${E2E_OUTPUT_DIR}"
 
 # Detect GPU availability and adjust DEVICE if needed
+# Respect explicit pinning; default to auto-pick unless AUTOPICK_GPU=0
 if command -v nvidia-smi >/dev/null 2>&1; then
   GPU_COUNT=$(nvidia-smi --list-gpus | wc -l | tr -d ' ')
   echo "[E2E] Detected ${GPU_COUNT} NVIDIA GPU(s)"
@@ -63,6 +64,11 @@ else
   echo "[E2E] No NVIDIA GPUs detected; forcing CPU"
   DEVICE="cpu"
 fi
+
+# Ensure directories and set safe defaults for offline + allocator unless user overrides
+export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
+export TRANSFORMERS_OFFLINE="${TRANSFORMERS_OFFLINE:-1}"
+export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-max_split_size_mb:64}"
 
 # Ensure directories
 mkdir -p "${UNET_OUTPUT_DIR}" "${E2E_OUTPUT_DIR}"
