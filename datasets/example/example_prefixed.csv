@@ -1,0 +1,61 @@
+path,Text,modality
+/home/harshps22ugp/projects/CS787/datasets/example/breast-mri/0.jpg,BreastMRI: The breast MRI shows a tumor with a confirmed Her2 mutation in the tissue.,BreastMRI
+/home/harshps22ugp/projects/CS787/datasets/example/breast-mri/1.jpg,BreastMRI: The MRI scan highlights a breast tumor characterized by Her2 genetic alterations.,BreastMRI
+/home/harshps22ugp/projects/CS787/datasets/example/breast-mri/2.jpg,BreastMRI: The image demonstrates a breast lesion with evidence of Her2-positive mutation.,BreastMRI
+/home/harshps22ugp/projects/CS787/datasets/example/breast-mri/3.jpg,indicating the presence of a Her2-mutated tumor.: The MRI identifies a mass in the breast,indicating the presence of a Her2-mutated tumor.
+/home/harshps22ugp/projects/CS787/datasets/example/breast-mri/4.jpg,BreastMRI: The breast MRI reveals a tumor displaying Her2 overexpression within the tissue.,BreastMRI
+/home/harshps22ugp/projects/CS787/datasets/example/breast-mri/5.jpg,BreastMRI: The breast MRI shows a tumor without any detectable Her2 mutation.,BreastMRI
+/home/harshps22ugp/projects/CS787/datasets/example/breast-mri/6.jpg,BreastMRI: The MRI scan reveals a breast tumor that lacks Her2 genetic alterations.,BreastMRI
+/home/harshps22ugp/projects/CS787/datasets/example/breast-mri/7.jpg,BreastMRI: The image demonstrates a breast lesion with no evidence of Her2-positive mutation.,BreastMRI
+/home/harshps22ugp/projects/CS787/datasets/example/breast-mri/8.jpg,indicating the absence of Her2 mutation.: The MRI identifies a mass in the breast,indicating the absence of Her2 mutation.
+/home/harshps22ugp/projects/CS787/datasets/example/breast-mri/9.jpg,BreastMRI: The breast MRI reveals a tumor that does not display Her2 overexpression.,BreastMRI
+/home/harshps22ugp/projects/CS787/datasets/example/brain-mri/0.jpg,BrainMRI: The brain MRI shows a tumor with a MET mutation.,BrainMRI
+/home/harshps22ugp/projects/CS787/datasets/example/brain-mri/1.jpg,BrainMRI: The scan reveals a brain mass with MET genetic alterations.,BrainMRI
+/home/harshps22ugp/projects/CS787/datasets/example/brain-mri/2.jpg,BrainMRI: This MRI highlights a brain tumor with a confirmed MET mutation.,BrainMRI
+/home/harshps22ugp/projects/CS787/datasets/example/brain-mri/3.jpg,BrainMRI: The image displays a brain tumor with evidence of MET mutation.,BrainMRI
+/home/harshps22ugp/projects/CS787/datasets/example/brain-mri/4.jpg,BrainMRI: The MRI shows abnormal growth in the brain linked to a MET mutation.,BrainMRI
+/home/harshps22ugp/projects/CS787/datasets/example/brain-mri/5.jpg,BrainMRI: The brain MRI shows a tumor without MET mutation.,BrainMRI
+/home/harshps22ugp/projects/CS787/datasets/example/brain-mri/6.jpg,BrainMRI: The scan reveals a brain mass lacking MET genetic alterations.,BrainMRI
+/home/harshps22ugp/projects/CS787/datasets/example/brain-mri/7.jpg,BrainMRI: This MRI highlights a brain tumor with no evidence of MET mutation.,BrainMRI
+/home/harshps22ugp/projects/CS787/datasets/example/brain-mri/8.jpg,BrainMRI: The image displays a brain tumor that does not show MET mutation.,BrainMRI
+/home/harshps22ugp/projects/CS787/datasets/example/brain-mri/9.jpg,BrainMRI: The MRI indicates a brain lesion without MET genetic changes.,BrainMRI
+/home/harshps22ugp/projects/CS787/datasets/example/fundus/0.jpg,Fundus: The fundus image shows a normal retina.,Fundus
+/home/harshps22ugp/projects/CS787/datasets/example/fundus/1.jpg,Fundus: The scan reveals a healthy optic nerve and retina.,Fundus
+/home/harshps22ugp/projects/CS787/datasets/example/fundus/2.jpg,Fundus: The fundus photo displays no abnormalities.,Fundus
+/home/harshps22ugp/projects/CS787/datasets/example/fundus/3.jpg,Fundus: The image highlights a clear and healthy retina.,Fundus
+/home/harshps22ugp/projects/CS787/datasets/example/fundus/4.jpg,Fundus: The fundus view indicates no signs of disease.,Fundus
+/home/harshps22ugp/projects/CS787/datasets/example/fundus/5.jpg,Fundus: The fundus image shows a normal retina.,Fundus
+/home/harshps22ugp/projects/CS787/datasets/example/fundus/6.jpg,Fundus: The scan reveals a healthy optic nerve and retina.,Fundus
+/home/harshps22ugp/projects/CS787/datasets/example/fundus/7.jpg,Fundus: The fundus photo displays no abnormalities.,Fundus
+/home/harshps22ugp/projects/CS787/datasets/example/fundus/8.jpg,Fundus: The image highlights a clear and healthy retina.,Fundus
+/home/harshps22ugp/projects/CS787/datasets/example/fundus/9.jpg,Fundus: The fundus view indicates no signs of disease.,Fundus
+/home/harshps22ugp/projects/CS787/datasets/example/chest-ct/0.jpg,ChestCT: The chest CT shows a tumor with an EGFR mutation.,ChestCT
+/home/harshps22ugp/projects/CS787/datasets/example/chest-ct/1.jpg,ChestCT: The scan reveals a mass with EGFR genetic alterations.,ChestCT
+/home/harshps22ugp/projects/CS787/datasets/example/chest-ct/2.jpg,ChestCT: This CT image highlights an abnormal growth with EGFR mutation.,ChestCT
+/home/harshps22ugp/projects/CS787/datasets/example/chest-ct/3.jpg,ChestCT: The chest CT identifies a lesion with confirmed EGFR changes.,ChestCT
+/home/harshps22ugp/projects/CS787/datasets/example/chest-ct/4.jpg,ChestCT: The image captures a tumor displaying EGFR mutation.,ChestCT
+/home/harshps22ugp/projects/CS787/datasets/example/chest-ct/5.jpg,ChestCT: The chest CT shows a tumor without EGFR mutation.,ChestCT
+/home/harshps22ugp/projects/CS787/datasets/example/chest-ct/6.jpg,ChestCT: The scan reveals a mass lacking EGFR genetic alterations.,ChestCT
+/home/harshps22ugp/projects/CS787/datasets/example/chest-ct/7.jpg,ChestCT: This CT image highlights a growth with no EGFR mutation.,ChestCT
+/home/harshps22ugp/projects/CS787/datasets/example/chest-ct/8.jpg,ChestCT: The chest CT identifies a lesion without EGFR changes.,ChestCT
+/home/harshps22ugp/projects/CS787/datasets/example/chest-ct/9.jpg,ChestCT: The image captures a tumor that does not display EGFR mutation.,ChestCT
+/home/harshps22ugp/projects/CS787/datasets/example/oct/0.jpg,OCT: The OCT image shows a detailed view of the retinal layers.,OCT
+/home/harshps22ugp/projects/CS787/datasets/example/oct/1.jpg,OCT: The scan reveals the structural integrity of the retina and underlying tissues.,OCT
+/home/harshps22ugp/projects/CS787/datasets/example/oct/2.jpg,OCT: This OCT image captures the macular and optic nerve head with high resolution.,OCT
+/home/harshps22ugp/projects/CS787/datasets/example/oct/3.jpg,OCT: The OCT scan displays the retinal architecture with no visible abnormalities.,OCT
+/home/harshps22ugp/projects/CS787/datasets/example/oct/4.jpg,highlighting healthy tissue.: The image provides a cross-sectional view of the retina,highlighting healthy tissue.
+/home/harshps22ugp/projects/CS787/datasets/example/oct/5.jpg,OCT: The OCT image shows a detailed view of the retinal layers.,OCT
+/home/harshps22ugp/projects/CS787/datasets/example/oct/6.jpg,OCT: The scan reveals the structural integrity of the retina and underlying tissues.,OCT
+/home/harshps22ugp/projects/CS787/datasets/example/oct/7.jpg,OCT: This OCT image captures the macular and optic nerve head with high resolution.,OCT
+/home/harshps22ugp/projects/CS787/datasets/example/oct/8.jpg,OCT: The OCT scan displays the retinal architecture with no visible abnormalities.,OCT
+/home/harshps22ugp/projects/CS787/datasets/example/oct/9.jpg,highlighting healthy tissue.: The image provides a cross-sectional view of the retina,highlighting healthy tissue.
+/home/harshps22ugp/projects/CS787/datasets/example/cxr/0.jpg,CXR: The CXR image shows a clear view of the chest cavity and lung fields.,CXR
+/home/harshps22ugp/projects/CS787/datasets/example/cxr/1.jpg,lungs: The scan reveals the structural details of the heart,lungs
+/home/harshps22ugp/projects/CS787/datasets/example/cxr/2.jpg,CXR: This CXR image captures the lung fields with no visible abnormalities.,CXR
+/home/harshps22ugp/projects/CS787/datasets/example/cxr/3.jpg,CXR: The chest X-ray displays normal lung and heart contours with no signs of pathology.,CXR
+/home/harshps22ugp/projects/CS787/datasets/example/cxr/4.jpg,indicating a healthy chest.: The image provides a detailed view of the thoracic structures,indicating a healthy chest.
+/home/harshps22ugp/projects/CS787/datasets/example/cxr/5.jpg,CXR: The CXR image shows a clear view of the chest cavity and lung fields.,CXR
+/home/harshps22ugp/projects/CS787/datasets/example/cxr/6.jpg,lungs: The scan reveals the structural details of the heart,lungs
+/home/harshps22ugp/projects/CS787/datasets/example/cxr/7.jpg,CXR: This CXR image captures the lung fields with no visible abnormalities.,CXR
+/home/harshps22ugp/projects/CS787/datasets/example/cxr/8.jpg,CXR: The chest X-ray displays normal lung and heart contours with no signs of pathology.,CXR
+/home/harshps22ugp/projects/CS787/datasets/example/cxr/9.jpg,indicating a healthy chest.: The image provides a detailed view of the thoracic structures,indicating a healthy chest.
