@@ -508,6 +508,159 @@ generated_rlhf/
 - **CPU Fallback**: Use CPU for development/testing
 - **Batch Processing**: Process multiple prompts efficiently
 - **Checkpoint Loading**: Load models once, generate multiple images
+ 
+### Fundus training recipes
+
+The following sequence reproduces our best results on a single 12 GB TITAN Xp while staying close to the MINIM training philosophy. It uses gradient accumulation, cosine LR with warmup, min‑SNR weighting, and staged up‑resolution.
+
+#### Phase 0 — Train at 256px (from scratch, 5k steps)
+```bash
+CUDA_VISIBLE_DEVICES=1 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:32" \
+WANDB_DISABLED=true \
+UV_NO_SYNC=1 uv run accelerate launch --num_processes=1 --mixed_precision=fp16 training/model.py \
+  --pretrained_model_name_or_path runwayml/stable-diffusion-v1-5 \
+  --train_data_dir datasets/example/fundus_only.csv \
+  --resolution 256 --center_crop --random_flip \
+  --train_batch_size 1 --gradient_accumulation_steps 32 --gradient_checkpointing \
+  --max_train_steps 5000 --learning_rate 1e-05 --max_grad_norm 1 \
+  --lr_scheduler constant --lr_warmup_steps 200 \
+  --validation_prompts "" --validation_epochs 1000000 \
+  --output_dir ./checkpoints/medical-model-fundus-256 \
+  --checkpointing_steps 1000 --checkpoints_total_limit 3 --dataloader_num_workers 0 \
+  --image_column path --caption_column Text \
+  --use_8bit_adam
+```
+
+#### Phase 1 — Extend 256px to 10k steps (cosine LR, min‑SNR)
+```bash
+CUDA_VISIBLE_DEVICES=1 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:32" \
+WANDB_DISABLED=true \
+UV_NO_SYNC=1 uv run accelerate launch --num_processes=1 --mixed_precision=fp16 training/model.py \
+  --pretrained_model_name_or_path runwayml/stable-diffusion-v1-5 \
+  --train_data_dir datasets/example/fundus_only.csv \
+  --resolution 256 --center_crop --random_flip \
+  --train_batch_size 1 --gradient_accumulation_steps 48 --gradient_checkpointing \
+  --max_train_steps 10000 --learning_rate 1e-05 --max_grad_norm 1 \
+  --lr_scheduler cosine --lr_warmup_steps 500 \
+  --snr_gamma 5 --noise_offset 0.03 \
+  --validation_prompts "" --validation_epochs 1000000 \
+  --output_dir ./checkpoints/medical-model-fundus-256 \
+  --checkpointing_steps 1000 --checkpoints_total_limit 3 --dataloader_num_workers 0 \
+  --image_column path --caption_column Text \
+  --use_8bit_adam \
+  --resume_from_checkpoint ./checkpoints/medical-model-fundus-256/checkpoint-5000
+```
+
+#### Phase 2 — Up‑resolution to 320px (resume from 256)
+
+Important: the trainer resolves `--resume_from_checkpoint` under `--output_dir`. Seed the 320 run by copying the 256 checkpoint into the new output dir, then resume by name.
+
+```bash
+# seed 320 output with the 256 checkpoint
+mkdir -p checkpoints/medical-model-fundus-320
+rsync -a checkpoints/medical-model-fundus-256/checkpoint-10000/ \
+      checkpoints/medical-model-fundus-320/checkpoint-10000/
+
+# continue training at 320px
+CUDA_VISIBLE_DEVICES=1 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:32" \
+WANDB_DISABLED=true \
+UV_NO_SYNC=1 uv run accelerate launch --num_processes=1 --mixed_precision=fp16 training/model.py \
+  --pretrained_model_name_or_path runwayml/stable-diffusion-v1-5 \
+  --train_data_dir datasets/example/fundus_only.csv \
+  --resolution 320 --center_crop --random_flip \
+  --train_batch_size 1 --gradient_accumulation_steps 64 --gradient_checkpointing \
+  --max_train_steps 12000 --learning_rate 8e-06 --max_grad_norm 1 \
+  --lr_scheduler cosine --lr_warmup_steps 500 \
+  --snr_gamma 5 --noise_offset 0.03 \
+  --validation_prompts "" --validation_epochs 1000000 \
+  --output_dir ./checkpoints/medical-model-fundus-320 \
+  --checkpointing_steps 1000 --checkpoints_total_limit 3 --dataloader_num_workers 0 \
+  --image_column path --caption_column Text \
+  --use_8bit_adam \
+  --resume_from_checkpoint checkpoint-10000
+```
+
+Optionally extend to 18k steps at 320 for extra refinement:
+```bash
+CUDA_VISIBLE_DEVICES=1 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:32" \
+WANDB_DISABLED=true \
+UV_NO_SYNC=1 uv run accelerate launch --num_processes=1 --mixed_precision=fp16 training/model.py \
+  --pretrained_model_name_or_path runwayml/stable-diffusion-v1-5 \
+  --train_data_dir datasets/example/fundus_only.csv \
+  --resolution 320 --center_crop --random_flip \
+  --train_batch_size 1 --gradient_accumulation_steps 64 --gradient_checkpointing \
+  --max_train_steps 18000 --learning_rate 5e-06 --max_grad_norm 1 \
+  --lr_scheduler cosine --lr_warmup_steps 500 \
+  --snr_gamma 5 --noise_offset 0.03 \
+  --validation_prompts "" --validation_epochs 1000000 \
+  --output_dir ./checkpoints/medical-model-fundus-320 \
+  --checkpointing_steps 1000 --checkpoints_total_limit 3 --dataloader_num_workers 0 \
+  --image_column path --caption_column Text \
+  --use_8bit_adam \
+  --resume_from_checkpoint checkpoint-12000
+```
+
+#### Phase 3 — Optional 384px top‑up (adds micro‑texture realism)
+```bash
+# seed 384 output from the best 320 checkpoint
+mkdir -p checkpoints/medical-model-fundus-384
+rsync -a checkpoints/medical-model-fundus-320/checkpoint-18000/ \
+      checkpoints/medical-model-fundus-384/checkpoint-18000/
+
+# brief 384 training (2k additional steps); if OOM, reduce resolution to 352 or
+# lower accumulation slightly
+CUDA_VISIBLE_DEVICES=1 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:32" \
+WANDB_DISABLED=true \
+UV_NO_SYNC=1 uv run accelerate launch --num_processes=1 --mixed_precision=fp16 training/model.py \
+  --pretrained_model_name_or_path runwayml/stable-diffusion-v1-5 \
+  --train_data_dir datasets/example/fundus_only.csv \
+  --resolution 384 --center_crop --random_flip \
+  --train_batch_size 1 --gradient_accumulation_steps 96 --gradient_checkpointing \
+  --max_train_steps 20000 --learning_rate 3e-06 --max_grad_norm 1 \
+  --lr_scheduler cosine --lr_warmup_steps 300 \
+  --snr_gamma 5 --noise_offset 0.05 \
+  --validation_prompts "" --validation_epochs 1000000 \
+  --output_dir ./checkpoints/medical-model-fundus-384 \
+  --checkpointing_steps 1000 --checkpoints_total_limit 3 --dataloader_num_workers 0 \
+  --image_column path --caption_column Text \
+  --use_8bit_adam \
+  --resume_from_checkpoint checkpoint-18000
+```
+
+#### Generate 9 images at the trained resolution
+```bash
+# 256px (after Phase 1)
+UV_NO_SYNC=1 uv run python generate.py \
+  --pretrained_model runwayml/stable-diffusion-v1-5 \
+  --model_used ./checkpoints/medical-model-fundus-256/checkpoint-10000 \
+  --prompt "Fundus: healthy retina with clear optic disc" \
+  --img_num 9 --device cuda:1 --num_inference_steps 50 \
+  --precision float32 --scheduler euler_a --height 256 --width 256 \
+  --output_dir generated_fundus_256_9
+
+# 320px (after Phase 2)
+UV_NO_SYNC=1 uv run python generate.py \
+  --pretrained_model runwayml/stable-diffusion-v1-5 \
+  --model_used ./checkpoints/medical-model-fundus-320/checkpoint-18000 \
+  --prompt "Fundus: healthy retina with clear optic disc" \
+  --img_num 9 --device cuda:1 --num_inference_steps 50 \
+  --precision float32 --scheduler euler_a --height 320 --width 320 \
+  --output_dir generated_fundus_320_9
+
+# 384px (after Phase 3) — DPM for slightly more realistic texture
+  UV_NO_SYNC=1 uv run python generate.py \
+    --pretrained_model runwayml/stable-diffusion-v1-5 \
+  --model_used ./checkpoints/medical-model-fundus-384/checkpoint-20000 \
+  --prompt "Fundus: healthy retina with clear optic disc" \
+  --img_num 9 --device cuda:1 --num_inference_steps 40 \
+  --precision float32 --scheduler dpm --height 384 --width 384 \
+  --output_dir generated_fundus_384_9
+```
+
+Notes:
+- If resume fails with a path error, ensure the checkpoint folder name (e.g., `checkpoint-10000`) exists under the current `--output_dir` and resume by that relative name.
+- Keep `--use_8bit_adam` for optimizer memory savings on 12 GB GPUs.
+- If you see OOM at 384px, downshift to 352px or reduce `--num_inference_steps` during generation.
 
 # References 
 
