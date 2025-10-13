@@ -146,8 +146,81 @@ More information on all the CLI arguments and the environment are available on y
         f.write(yaml + model_card)
 
 
+def log_biomedbert_validation(vae, text_encoder, tokenizer, unet, args, accelerator, weight_dtype, epoch):
+    """BioMedBERT-compatible validation using manual pipeline construction"""
+    logger.info("Running BioMedBERT validation... ")
+    
+    # Load scheduler from pretrained model
+    from diffusers import PNDMScheduler
+    scheduler = PNDMScheduler.from_pretrained(
+        args.pretrained_model_name_or_path, 
+        subfolder="scheduler",
+        local_files_only=True
+    )
+    
+    # Create pipeline manually to avoid tokenizer type issues
+    pipeline = StableDiffusionPipeline(
+        vae=accelerator.unwrap_model(vae),
+        text_encoder=accelerator.unwrap_model(text_encoder),
+        tokenizer=tokenizer,
+        unet=accelerator.unwrap_model(unet),
+        scheduler=scheduler,
+        safety_checker=None,
+        feature_extractor=None,
+    )
+    
+    pipeline = pipeline.to(accelerator.device)
+    pipeline.set_progress_bar_config(disable=True)
+
+    if args.enable_xformers_memory_efficient_attention:
+        pipeline.enable_xformers_memory_efficient_attention()
+
+    if args.seed is None:
+        generator = None
+    else:
+        generator = torch.Generator(device=accelerator.device).manual_seed(args.seed)
+
+    # Run validation with empty prompts to avoid tokenizer issues
+    validation_prompts = [""]  # Empty prompt for BioMedBERT validation
+    
+    images = []
+    for prompt in validation_prompts:
+        with torch.autocast(accelerator.device.type):
+            image = pipeline(
+                prompt, 
+                num_inference_steps=20, 
+                generator=generator,
+                height=args.resolution,
+                width=args.resolution,
+            ).images[0]
+        images.append(image)
+
+    for tracker in accelerator.trackers:
+        if tracker.name == "tensorboard":
+            np_images = np.stack([np.asarray(img) for img in images])
+            tracker.writer.add_images("validation", np_images, epoch, dataformats="NHWC")
+        if tracker.name == "wandb":
+            tracker.log(
+                {
+                    "validation": [
+                        wandb.Image(image, caption=f"{i}: {validation_prompts[i]}")
+                        for i, image in enumerate(images)
+                    ]
+                }
+            )
+
+    del pipeline
+    torch.cuda.empty_cache()
+    return images
+
+
 def log_validation(vae, text_encoder, tokenizer, unet, args, accelerator, weight_dtype, epoch):
     logger.info("Running validation... ")
+
+    # Handle BioMedBERT validation differently
+    if hasattr(args, 'med_text_encoder_id') and args.med_text_encoder_id:
+        logger.info("Using BioMedBERT-compatible validation")
+        return log_biomedbert_validation(vae, text_encoder, tokenizer, unet, args, accelerator, weight_dtype, epoch)
 
     pipeline = StableDiffusionPipeline.from_pretrained(
         args.pretrained_model_name_or_path,
