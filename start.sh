@@ -16,9 +16,9 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 # -----------------------------
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0,1}"
 DEVICE="${DEVICE:-cuda:0}"
-UNET_OUTPUT_DIR="${UNET_OUTPUT_DIR:-${REPO_ROOT}/checkpoints/medical-model}"
+UNET_OUTPUT_DIR="${UNET_OUTPUT_DIR:-${REPO_ROOT}/checkpoints/medical-model-biomedbert-320}"
 RLHF_CONFIG_PATH="${RLHF_CONFIG_PATH:-${REPO_ROOT}/config.yaml}"
-BASE_PROMPT="${BASE_PROMPT:-Chest X-ray: normal lung fields without infiltrates}"
+BASE_PROMPT="${BASE_PROMPT:-The fundus image reveals a clear view of the retina, optic disc, macula, and the network of blood vessels, providing essential details for evaluating the health and condition of the eye.}"
 NUM_IMAGES="${NUM_IMAGES:-3}"
 E2E_OUTPUT_DIR="${E2E_OUTPUT_DIR:-${REPO_ROOT}/generated_e2e}"
 AUTOPICK_GPU="${AUTOPICK_GPU:-1}"
@@ -133,29 +133,71 @@ ensure_example_dataset() {
 }
 
 # -----------------------------
-# 1) Fine-tune Stable Diffusion UNet
+# 1) Fine-tune Stable Diffusion UNet with BioMedBERT
 # -----------------------------
-step "Step 1: Fine-tune Stable Diffusion UNet"
-DATASET_CSV="$(ensure_example_dataset || true)"
-if [ -z "${DATASET_CSV}" ]; then
-  echo "[E2E] No dataset CSV available. Please place a CSV at datasets/example/example_data.csv and re-run." >&2
-  exit 1
+step "Step 1: Fine-tune Stable Diffusion UNet with BioMedBERT"
+
+# Clean start - remove old checkpoints
+echo "[E2E] Cleaning old checkpoints for fresh start"
+rm -rf checkpoints/medical-model*
+
+# Use fundus dataset for BioMedBERT training
+DATASET_CSV="${REPO_ROOT}/datasets/example/fundus_only.csv"
+if [ ! -f "${DATASET_CSV}" ]; then
+  echo "[E2E] Fundus dataset not found at ${DATASET_CSV}. Creating from generated images..." >&2
+  DATASET_CSV="$(ensure_example_dataset || true)"
+  if [ -z "${DATASET_CSV}" ]; then
+    echo "[E2E] No dataset CSV available. Please place a CSV at datasets/example/fundus_only.csv and re-run." >&2
+    exit 1
+  fi
 fi
 echo "[E2E] Using dataset CSV: ${DATASET_CSV}"
+
 pushd "${REPO_ROOT}" >/dev/null
-echo "[E2E] Launching scripts/train.sh from repo root"
-# Favor stability on constrained VRAM
+
+# Phase 1: Train at 256px with BioMedBERT
+echo "[E2E] Phase 1: Training at 256px with BioMedBERT text encoder"
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES}" \
-  DATASET_NAME="${DATASET_CSV}" \
-  TRAIN_BATCH_SIZE="${TRAIN_BATCH_SIZE:-1}" \
-  GRADIENT_ACCUMULATION_STEPS="${GRADIENT_ACCUMULATION_STEPS:-32}" \
-  ENABLE_XFORMERS="${ENABLE_XFORMERS:-0}" \
-  RESOLUTION="${RESOLUTION:-128}" \
-  USE_EMA="${USE_EMA:-0}" \
-  USE_8BIT_ADAM="${USE_8BIT_ADAM:-1}" \
-  REPORT_TO="${REPORT_TO:-}" \
-  DATALOADER_NUM_WORKERS="${DATALOADER_NUM_WORKERS:-0}" \
-  UV_NO_SYNC=1 uv run bash ./scripts/train.sh
+UV_NO_SYNC=1 uv run accelerate launch --num_processes=1 --mixed_precision=fp16 training/model.py \
+  --pretrained_model_name_or_path runwayml/stable-diffusion-v1-5 \
+  --med_text_encoder_id microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext \
+  --train_text_encoder \
+  --train_data_dir "${DATASET_CSV}" \
+  --resolution 256 --center_crop --random_flip \
+  --train_batch_size 1 --gradient_accumulation_steps 32 --gradient_checkpointing \
+  --max_train_steps 10000 --learning_rate 1e-05 --max_grad_norm 1 \
+  --lr_scheduler cosine --lr_warmup_steps 500 \
+  --snr_gamma 5 --noise_offset 0.03 \
+  --validation_prompts "" --validation_epochs 1000000 \
+  --output_dir ./checkpoints/medical-model-biomedbert-256 \
+  --checkpointing_steps 1000 --checkpoints_total_limit 3 --dataloader_num_workers 0 \
+  --image_column path --caption_column Text \
+  --use_8bit_adam
+
+# Phase 2: Progressive up-resolution to 320px
+echo "[E2E] Phase 2: Progressive up-resolution to 320px"
+mkdir -p checkpoints/medical-model-biomedbert-320
+rsync -a checkpoints/medical-model-biomedbert-256/checkpoint-10000/ \
+      checkpoints/medical-model-biomedbert-320/checkpoint-10000/
+
+CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES}" \
+UV_NO_SYNC=1 uv run accelerate launch --num_processes=1 --mixed_precision=fp16 training/model.py \
+  --pretrained_model_name_or_path runwayml/stable-diffusion-v1-5 \
+  --med_text_encoder_id microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext \
+  --train_text_encoder \
+  --train_data_dir "${DATASET_CSV}" \
+  --resolution 320 --center_crop --random_flip \
+  --train_batch_size 1 --gradient_accumulation_steps 48 --gradient_checkpointing \
+  --max_train_steps 12000 --learning_rate 8e-06 --max_grad_norm 1 \
+  --lr_scheduler cosine --lr_warmup_steps 500 \
+  --snr_gamma 5 --noise_offset 0.03 \
+  --validation_prompts "" --validation_epochs 1000000 \
+  --output_dir ./checkpoints/medical-model-biomedbert-320 \
+  --checkpointing_steps 1000 --checkpoints_total_limit 3 --dataloader_num_workers 0 \
+  --image_column path --caption_column Text \
+  --use_8bit_adam \
+  --resume_from_checkpoint checkpoint-10000
+
 popd >/dev/null
 
 # -----------------------------
@@ -171,18 +213,22 @@ UV_NO_SYNC=1 uv run python ./main.py --config "${RLHF_CONFIG_PATH}" || {
 popd >/dev/null
 
 # -----------------------------
-# 3) Generation using fine-tuned UNet
+# 3) Generation using fine-tuned BioMedBERT UNet
 # -----------------------------
-step "Step 3: Generate with fine-tuned UNet"
+step "Step 3: Generate with fine-tuned BioMedBERT UNet"
 echo "[E2E] Generating ${NUM_IMAGES} images for prompt: ${BASE_PROMPT}"
 pushd "${REPO_ROOT}" >/dev/null
 UV_NO_SYNC=1 uv run python ./generate.py \
-  --model_used "${UNET_OUTPUT_DIR}" \
-  --prompt "${BASE_PROMPT}" \
+  --pretrained_model runwayml/stable-diffusion-v1-5 \
+  --model_used ./checkpoints/medical-model-biomedbert-320/checkpoint-12000 \
+  --prompt "The fundus image reveals a clear view of the retina, optic disc, macula, and the network of blood vessels, providing essential details for evaluating the health and condition of the eye." \
   --device "${DEVICE}" \
-  --img_num "${NUM_IMAGES}" \
+  --img_num 9 \
   --num_inference_steps 50 \
-  --output_dir "${E2E_OUTPUT_DIR}/finetuned"
+  --precision float32 \
+  --scheduler dpm \
+  --height 320 --width 320 \
+  --output_dir "${E2E_OUTPUT_DIR}/biomedbert-320"
 popd >/dev/null
 
 echo
