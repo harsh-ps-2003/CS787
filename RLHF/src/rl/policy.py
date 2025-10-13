@@ -3,7 +3,8 @@
 
 import torch
 import torch.nn as nn
-from transformers import CLIPModel, CLIPProcessor
+from utils.medical_text_encoder import load_med_encoder
+from utils.prompt_utils import tokenize_prompts
 import logging
 from typing import Dict, Tuple, List
 import os
@@ -133,11 +134,10 @@ class RLPolicy(nn.Module):
         self.device = get_device(config)
         
         self.image_encoder = VisionTransformer(config)
-        self.clip = CLIPModel.from_pretrained(config["model_paths"]["clip"])
-        self.clip_processor = CLIPProcessor.from_pretrained(config["model_paths"]["clip"])
-        
-        for param in self.clip.parameters():
-            param.requires_grad = False
+
+        # Load medical-domain text encoder
+        med_id = config["model_paths"].get("med_text_encoder", "microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext")
+        self.tokenizer, self.text_encoder = load_med_encoder(med_id, device=self.device, dtype=torch.float32, trainable=False)
         
         self.fusion = FusionNetwork(config)
         self.head = self._build_head(config)
@@ -173,13 +173,13 @@ class RLPolicy(nn.Module):
         
     def forward(self, images: torch.Tensor, prompts: List[str]) -> torch.Tensor:
         image_features = self.image_encoder(images)
-        text_inputs = self.clip_processor(
-            text=prompts,
-            return_tensors="pt",
-            padding=True,
-            truncation=True
-        ).to(self.device)
-        text_features = self.clip.get_text_features(**text_inputs)
+        text_inputs = tokenize_prompts(self.tokenizer, prompts, max_len=256, device=self.device)
+        outputs = self.text_encoder(**text_inputs)
+        if hasattr(outputs, "pooler_output") and outputs.pooler_output is not None:
+            text_features = outputs.pooler_output
+        else:
+            # CLS token
+            text_features = outputs.last_hidden_state[:,0,:]
         
         combined_features = torch.cat([image_features, text_features], dim=1)
         fused = self.fusion(combined_features)

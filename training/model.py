@@ -45,8 +45,9 @@ from huggingface_hub import create_repo, upload_folder
 from packaging import version
 from torchvision import transforms
 from tqdm.auto import tqdm
-from transformers import CLIPTextModel, CLIPTokenizer
-from transformers.utils import ContextManagers
+# --- BioMedBERT text encoder replacement ---
+from utils.medical_text_encoder import load_med_encoder
+from utils.prompt_utils import tokenize_prompts
 
 import diffusers
 from diffusers import AutoencoderKL, DDPMScheduler, StableDiffusionPipeline, UNet2DConditionModel
@@ -210,7 +211,20 @@ def parse_args():
         type=str,
         default=None,
         required=True,
-        help="Path to pretrained model or model identifier from huggingface.co/models.",
+        help="Path to pretrained StableDiffusion model.",
+    )
+
+    parser.add_argument(
+        "--med_text_encoder_id",
+        type=str,
+        default="microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext",
+        help="HF model id for medical-domain text encoder.",
+    )
+
+    parser.add_argument(
+        "--train_text_encoder",
+        action="store_true",
+        help="Whether to fine-tune the BioMedBERT text encoder.",
     )
     parser.add_argument(
         "--revision",
@@ -555,8 +569,12 @@ def main():
 
     # Load scheduler, tokenizer and models.
     noise_scheduler = DDPMScheduler.from_pretrained(args.pretrained_model_name_or_path, subfolder="scheduler")
-    tokenizer = CLIPTokenizer.from_pretrained(
-        args.pretrained_model_name_or_path, subfolder="tokenizer", revision=args.revision
+    # Load medical tokenizer + encoder
+    tokenizer, text_encoder = load_med_encoder(
+        model_id=args.med_text_encoder_id,
+        device=accelerator.device,
+        dtype=torch.float16 if accelerator.mixed_precision == "fp16" else torch.float32,
+        trainable=args.train_text_encoder,
     )
 
     def deepspeed_zero_init_disabled_context_manager():
@@ -579,9 +597,6 @@ def main():
     # `from_pretrained` So CLIPTextModel and AutoencoderKL will not enjoy the parameter sharding
     # across multiple gpus and only UNet2DConditionModel will get ZeRO sharded.
     with ContextManagers(deepspeed_zero_init_disabled_context_manager()):
-        text_encoder = CLIPTextModel.from_pretrained(
-            args.pretrained_model_name_or_path, subfolder="text_encoder", revision=args.revision
-        )
         vae = AutoencoderKL.from_pretrained(
             args.pretrained_model_name_or_path, subfolder="vae", revision=args.revision
         )
@@ -738,16 +753,10 @@ def main():
             if isinstance(caption, str):
                 captions.append(caption)
             elif isinstance(caption, (list, np.ndarray)):
-                # take a random caption if there are multiple
                 captions.append(random.choice(caption) if is_train else caption[0])
             else:
-                raise ValueError(
-                    f"Caption column `{caption_column}` should contain either strings or lists of strings."
-                )
-        inputs = tokenizer(
-            captions, max_length=tokenizer.model_max_length, padding="max_length", truncation=True, return_tensors="pt"
-        )
-        return inputs.input_ids
+                raise ValueError("Caption column should be str or list.")
+        return tokenize_prompts(tokenizer, captions, max_len=256, device="cpu")["input_ids"]
 
     # Preprocessing the datasets.
     train_transforms = transforms.Compose(
@@ -918,7 +927,7 @@ def main():
                     noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
 
                 # Get the text embedding for conditioning
-                encoder_hidden_states = text_encoder(batch["input_ids"])[0]
+                encoder_hidden_states = text_encoder(batch["input_ids"], attention_mask=None).last_hidden_state
 
                 # Get the target for loss depending on the prediction type
                 if args.prediction_type is not None:

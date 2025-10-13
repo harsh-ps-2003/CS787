@@ -1,7 +1,7 @@
 # Model paths
 model_paths:
   stable_diffusion: "runwayml/stable-diffusion-v1-5"
-  clip: "openai/clip-vit-large-patch14"
+  med_text_encoder: "microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext"
 
 # Device configuration
 device:
@@ -76,8 +76,9 @@ policy_model:
       mlp_dim: 3072
       dropout: 0.1
     text_encoder:
-      type: "clip"
+      type: "biomedbert"
       output_dim: 768
+      max_length: 256
     fusion:
       hidden_dims: [1536, 768, 384]
       dropout: 0.1

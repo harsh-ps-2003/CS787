@@ -120,15 +120,10 @@ class SyntheticSystem:
         latents = self.model.vae.encode(images).latent_dist.sample()
         latents = latents * self.model.vae.config.scaling_factor
         
-        text_inputs = self.model.tokenizer(
-            prompts,
-            padding="max_length",
-            max_length=self.model.tokenizer.model_max_length,
-            truncation=True,
-            return_tensors="pt"
-        ).to(self.device)
-        
-        text_embeddings = self.model.text_encoder(text_inputs.input_ids)[0]
+        # Use helper for prompt tokenization compatible with BioMedBERT
+        from utils.prompt_utils import tokenize_prompts
+        text_inputs = tokenize_prompts(self.model.tokenizer, prompts, max_len=256, device=self.device)
+        text_embeddings = self.model.text_encoder(**text_inputs).last_hidden_state
         
         noise = torch.randn_like(latents)
         timesteps = torch.randint(0, self.model.scheduler.num_train_timesteps, (latents.shape[0],), device=self.device)

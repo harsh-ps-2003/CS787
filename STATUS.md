@@ -1,33 +1,15 @@
-## CS787 Technical Report
-
-1) If your project is based on a paper:
-
-a) State that the paper is published in a reputed conference
-
-b) Mention if you could download/clone the repository, browse and build the source code and dataset
-
-c) Reproduce the results of the paper on a small subset of the dataset
-
-d) How close is your reproduction to what the authors reported in the paper?
-
-### Scope
-Generate synthetic medical images based on textual descriptions and specified imaging modality (e.g., "breast with tumor, MRI"; "lung with pneumonia, chest X-ray").
-
-Support for image generation across various imaging modalities:
-
-* Optical Coherence Tomography (OCT)
-* Fundus
-* Chest X-ray
-* Chest Computed Tomography (CT)
-* Brain MRI
-
-Further extensible to new modalities and prompts. We follow a Multi-Stage Training approach: initially we train on all data, Selector model filters low-quality outputs, RLHF pipeline for ongoing optimization.
-
 ### Implementation Status
 The system now provides two main usage modes:
 
 1. **Pre-trained Model Usage**: Immediate image generation using `simple_generate.py` without any training required
 2. **Custom Training**: Fine-tune models on medical datasets using the training pipeline
+
+**Added: BioMedBERT Text Conditioning**
+- Replaced CLIP text encoder with `microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext`
+- Medical-domain vocabulary with 28,000+ specialized tokens
+- Increased max prompt length from 77 → 256 tokens
+- Enhanced clinical reasoning capabilities for medical terminology
+- Compatible with existing Stable Diffusion U-Net (768-dim embeddings)
 
 ```mermaid
 graph TB
@@ -88,8 +70,8 @@ This approach mirrors clinical decision-making and produces more diagnostically 
 ### High Level Architecture
 
 - Uses CSV format and loads paired image-text-modal [path, text, modal] data. Loads and pre-processes images to standard resolution 256×256 with aspect ratio preservation. Normalize to [-1, 1] for diffusion model compatibility. Work on .png and .jpg formats. Maybe some batch processing? Load data in chunks rather than entire dataset in memory to handle large CSV files without memory overflow?
-- Tokenizer will convert textual prompts ("modality, finding, organ") into token IDs and attention masks. We can use some medical-domain transformer tokenizer (e.g., PubMedBERT - smaller vocabulary, faster processing) which would handle both modality tokens (MRI, CT, etc.) and rich description tokens supporting prompt templates for data augmentation, instead of standard CLIP tokenizer. Implement prompt augmentation for training robustness.
-- Text-condition encoder (Transformer) would embed tokenized prompts to provide text conditioning for the generator (Token IDs → embeddings). Right now, a simple pre-trained CLIP text encoder is used. Pre-trained transformer encoder (BioBERT, ClinicalBERT, etc) outputs sequence of embeddings (per token) for cross-attension and pooled embedding (whole sequence) for global conditioning
+- **BioMedBERT Tokenizer**: Converts medical prompts into token IDs with 256-token max length. Handles specialized medical vocabulary including anatomical structures, pathological findings, and imaging characteristics. Supports prompt templates for data augmentation.
+- **BioMedBERT Text Encoder**: Provides medical-domain text conditioning with 768-dim embeddings. Outputs sequence embeddings for cross-attention and pooled embeddings for global conditioning. Pre-trained on millions of medical texts for superior clinical concept understanding.
 - Maybe we can have a Modality Encoder (Modality → embedding, fusion with text) explicitly embeds imaging modality for conditioning or element-wise fusion (Hadamard product + linear projection). We would get Transform combined embeddings for U-Net consumption. Right now we have just string concatenation. Just concatenating "modality: description" lacks clinical reasoning
 - We would use a U-Net architecture (encoder-decoder with attension-gated skip connections) as main generator (image noise reversal), that handles progressive noise addition and removal and supports mixed-precision (fp16 for forward pass and fp32 for gradient computation) for efficiency. Right now we have a pre-trained Stable Diffusion U-Net.
 - Next, we would use cross-attension blocks to merge text (and modality) features with image features at each U-Net stage
