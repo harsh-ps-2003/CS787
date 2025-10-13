@@ -158,6 +158,7 @@ pushd "${REPO_ROOT}" >/dev/null
 # Phase 1: Train at 256px with BioMedBERT
 echo "[E2E] Phase 1: Training at 256px with BioMedBERT text encoder"
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES}" \
+HF_HUB_OFFLINE=0 TRANSFORMERS_OFFLINE=0 \
 UV_NO_SYNC=1 uv run accelerate launch --num_processes=1 --mixed_precision=fp16 training/model.py \
   --pretrained_model_name_or_path runwayml/stable-diffusion-v1-5 \
   --med_text_encoder_id microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext \
@@ -181,6 +182,7 @@ rsync -a checkpoints/medical-model-biomedbert-256/checkpoint-10000/ \
       checkpoints/medical-model-biomedbert-320/checkpoint-10000/
 
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES}" \
+HF_HUB_OFFLINE=0 TRANSFORMERS_OFFLINE=0 \
 UV_NO_SYNC=1 uv run accelerate launch --num_processes=1 --mixed_precision=fp16 training/model.py \
   --pretrained_model_name_or_path runwayml/stable-diffusion-v1-5 \
   --med_text_encoder_id microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext \
