@@ -339,12 +339,14 @@ def main():
                 negative_prompt_embeds = negative_prompt_embeds.to(dtype=embed_dtype)
                 
                 image = pipe(
+                    prompt=None,
+                    negative_prompt=None,
                     prompt_embeds=prompt_embeds,
                     negative_prompt_embeds=negative_prompt_embeds,
                     num_inference_steps=args.num_inference_steps,
                     guidance_scale=7.5,
                     height=args.height,
-                    width=args.width
+                    width=args.width,
                 ).images[0]
             else:
                 # Standard generation for CLIP-based models
