@@ -84,7 +84,7 @@ def calculate_FID(inception, real_images, generated_images):
 
 def calculate_IS(inception, images):
     pred = inception(images)
-    pred = F.softmax(pred).cpu().numpy()
+    pred = F.softmax(pred, dim=1).detach().cpu().numpy()
 
     py = np.mean(pred, axis=0)
     scores = []
