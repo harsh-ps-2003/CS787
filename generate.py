@@ -132,14 +132,50 @@ def load_model(args):
             torch_dtype = torch.float16 if args.precision == "float16" else torch.float32
         
         if args.use_pretrained_only or not args.model_used:
-            print(f"Loading pretrained model: {args.pretrained_model}")
-            pipe = StableDiffusionPipeline.from_pretrained(
-                args.pretrained_model,
-                torch_dtype=torch_dtype,
-                safety_checker=None,
-                requires_safety_checker=False,
-                use_safetensors=True
-            ).to(args.device)
+            # If a local fine-tuned checkpoint directory was passed in as --pretrained_model, reconstruct pipeline
+            if os.path.isdir(args.pretrained_model) and os.path.exists(os.path.join(args.pretrained_model, 'unet')):
+                print(f"Detected fine-tuned checkpoint directory at: {args.pretrained_model}")
+                unet = UNet2DConditionModel.from_pretrained(os.path.join(args.pretrained_model, 'unet'))
+                # Assume BioMedBERT for this fine-tuned checkpoint (naming convention)
+                try:
+                    from utils.medical_text_encoder import load_med_encoder
+                    tokenizer, text_encoder = load_med_encoder(
+                        model_id="microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext",
+                        device=args.device,
+                        dtype=torch_dtype,
+                        trainable=False,
+                    )
+                    base_id = "runwayml/stable-diffusion-v1-5"
+                    pipe = StableDiffusionPipeline.from_pretrained(
+                        base_id,
+                        unet=unet,
+                        text_encoder=text_encoder,
+                        tokenizer=tokenizer,
+                        torch_dtype=torch_dtype,
+                        safety_checker=None,
+                        requires_safety_checker=False,
+                        use_safetensors=True,
+                    ).to(args.device)
+                    # Mark pipeline as BioMedBERT for downstream logic
+                    setattr(pipe, "_is_biomedbert", True)
+                except Exception:
+                    # Fallback: load as a regular pipeline if med encoder unavailable
+                    pipe = StableDiffusionPipeline.from_pretrained(
+                        args.pretrained_model,
+                        torch_dtype=torch_dtype,
+                        safety_checker=None,
+                        requires_safety_checker=False,
+                        use_safetensors=True,
+                    ).to(args.device)
+            else:
+                print(f"Loading pretrained model: {args.pretrained_model}")
+                pipe = StableDiffusionPipeline.from_pretrained(
+                    args.pretrained_model,
+                    torch_dtype=torch_dtype,
+                    safety_checker=None,
+                    requires_safety_checker=False,
+                    use_safetensors=True
+                ).to(args.device)
         else:
             print(f"Loading fine-tuned model from: {args.model_used}")
             unet_path = os.path.join(args.model_used, 'unet')
@@ -263,9 +299,9 @@ def main():
     
     # Generate images
     try:
-        # Check if this is a BioMedBERT model
+        # Check if this is a BioMedBERT model (flag set during load or presence of text_encoder dir)
         text_encoder_path = os.path.join(args.model_used, 'text_encoder') if args.model_used else None
-        is_biomedbert = text_encoder_path and os.path.exists(text_encoder_path)
+        is_biomedbert = bool(getattr(pipe, "_is_biomedbert", False) or (text_encoder_path and os.path.exists(text_encoder_path)))
         
         for i in range(args.img_num):
             print(f"Generating image {i+1}/{args.img_num}...")
@@ -276,7 +312,8 @@ def main():
                 toks = tokenize_prompts(pipe.tokenizer, [args.prompt], max_len=256, device=args.device)
                 neg_toks = tokenize_prompts(pipe.tokenizer, [""], max_len=256, device=args.device)
                 
-                with torch.autocast(args.device):
+                device_type = "cuda" if str(args.device).startswith("cuda") else "cpu"
+                with torch.autocast(device_type):
                     prompt_embeds = pipe.text_encoder(toks["input_ids"], attention_mask=toks.get("attention_mask")).last_hidden_state
                     negative_prompt_embeds = pipe.text_encoder(neg_toks["input_ids"], attention_mask=neg_toks.get("attention_mask")).last_hidden_state
                 
