@@ -226,6 +226,13 @@ def load_model(args):
                 pipe.scheduler = PNDMScheduler.from_config(pipe.scheduler.config)
         except Exception:
             pass
+        
+        # Align text encoder dtype for BioMedBERT pipelines to avoid Half/Float mismatches
+        try:
+            if getattr(pipe, "_is_biomedbert", False):
+                pipe.text_encoder.to(args.device, dtype=torch_dtype)
+        except Exception:
+            pass
         # Memory optimizations for moderate GPUs
         try:
             pipe.enable_attention_slicing()
@@ -320,8 +327,16 @@ def main():
                 
                 device_type = "cuda" if str(args.device).startswith("cuda") else "cpu"
                 with torch.autocast(device_type):
-                    prompt_embeds = pipe.text_encoder(toks["input_ids"], attention_mask=toks.get("attention_mask")).last_hidden_state
-                    negative_prompt_embeds = pipe.text_encoder(neg_toks["input_ids"], attention_mask=neg_toks.get("attention_mask")).last_hidden_state
+                    prompt_embeds = pipe.text_encoder(
+                        toks["input_ids"], attention_mask=toks.get("attention_mask")
+                    ).last_hidden_state
+                    negative_prompt_embeds = pipe.text_encoder(
+                        neg_toks["input_ids"], attention_mask=neg_toks.get("attention_mask")
+                    ).last_hidden_state
+                # Ensure embeddings match UNet dtype
+                embed_dtype = getattr(pipe.unet, "dtype", torch.float16 if args.precision == "float16" else torch.float32)
+                prompt_embeds = prompt_embeds.to(dtype=embed_dtype)
+                negative_prompt_embeds = negative_prompt_embeds.to(dtype=embed_dtype)
                 
                 image = pipe(
                     prompt_embeds=prompt_embeds,
