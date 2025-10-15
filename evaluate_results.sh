@@ -99,7 +99,7 @@ def evaluate_directory(dir_path, name):
     # Compute averages
     avg_metrics = {}
     for key in all_metrics[0].keys():
-        avg_metrics[key] = np.mean([m[key] for m in all_metrics])
+        avg_metrics[key] = float(np.mean([m[key] for m in all_metrics]))  # Convert to Python float for JSON
     
     print(f"\n{name} Averages:")
     for key, value in avg_metrics.items():

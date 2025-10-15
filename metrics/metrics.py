@@ -115,8 +115,9 @@ def calculate_SSIM(real_images, generated_images):
 def main():
     args = parse_args()
     device = args.device
-    real_images = read_images(args.real_images)
-    generated_images = read_images(args.generated_images)
+    # Ensure all images are resized to 256x256 for fair comparison
+    real_images = read_images(args.real_images, target_size=(256, 256))
+    generated_images = read_images(args.generated_images, target_size=(256, 256))
     inception_model = load_inception_model()
 
     fid = calculate_FID(inception_model, real_images, generated_images)
