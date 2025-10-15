@@ -53,7 +53,7 @@ def read_images(folder_path, transform=None):
         image_path = os.path.join(folder_path, image_file)
         image = Image.open(image_path).convert("RGB")
         if transform == None:
-            input_tensor = transforms.ToTensor(image)
+            input_tensor = transforms.ToTensor()(image)
         else:
             input_tensor = transform(image)
         images.append(input_tensor)
