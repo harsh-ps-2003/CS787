@@ -142,7 +142,7 @@ def load_model(args):
                     tokenizer, text_encoder = load_med_encoder(
                         model_id="microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext",
                         device=args.device,
-                        dtype=torch_dtype,
+                        dtype=torch.float32,
                         trainable=False,
                     )
                     base_id = "runwayml/stable-diffusion-v1-5"
