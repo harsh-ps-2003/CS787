@@ -4,7 +4,7 @@ Traceback (most recent call last):
   File "/home/harshps22ugp/projects/CS787/metrics/metrics.py", line 114, in main
     real_images = read_images(args.real_images)
                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/harshps22ugp/projects/CS787/metrics/metrics.py", line 49, in read_images
-    f for f in os.listdir(folder_path) if f.endswith((".png", ".jpg", ".jpeg"))
-               ^^^^^^^^^^^^^^^^^^^^^^^
-NotADirectoryError: [Errno 20] Not a directory: 'real_images.csv'
+  File "/home/harshps22ugp/projects/CS787/metrics/metrics.py", line 56, in read_images
+    input_tensor = transforms.ToTensor(image)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: ToTensor.__init__() takes 1 positional argument but 2 were given
