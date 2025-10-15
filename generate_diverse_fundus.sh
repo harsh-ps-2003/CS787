@@ -46,65 +46,33 @@ for i in "${!PROMPTS[@]}"; do
     
     echo "[$image_num/${#PROMPTS[@]}] Generating: ${prompt:0:80}..."
     
-    # Use the existing generation approach but with diverse prompts
-    # Since the direct generate.py has dependency issues, let's create a simple generation script
+    # Create a temporary output directory for this specific image
+    temp_output_dir="${OUTPUT_DIR}/temp_${image_num}"
+    mkdir -p "$temp_output_dir"
     
-    cat > temp_generate.py << EOF
-import torch
-import os
-from PIL import Image
-import numpy as np
-
-# Simple generation using the existing model
-def generate_fundus_image(prompt, output_path, model_path, device="cuda:1"):
-    try:
-        # Load the model components
-        from diffusers import StableDiffusionPipeline
-        import torch
-        
-        # Load the BioMedBERT model
-        pipe = StableDiffusionPipeline.from_pretrained(
-            model_path,
-            torch_dtype=torch.float32,
-            safety_checker=None,
-            requires_safety_checker=False,
-            use_safetensors=True,
-        ).to(device)
-        
-        # Force full precision for BioMedBERT
-        pipe.to(dtype=torch.float32)
-        
-        # Generate image
-        with torch.autocast(device):
-            image = pipe(
-                prompt=prompt,
-                num_inference_steps=50,
-                guidance_scale=7.5,
-                height=256,
-                width=256,
-            ).images[0]
-        
-        # Save image
-        image.save(output_path)
-        print(f"Generated: {output_path}")
-        
-    except Exception as e:
-        print(f"Error generating {output_path}: {e}")
-        # Create a placeholder image
-        placeholder = Image.new('RGB', (256, 256), color='red')
-        placeholder.save(output_path)
-
-if __name__ == "__main__":
-    prompt = "$prompt"
-    output_path = "$OUTPUT_DIR/diverse_${image_num}.png"
-    generate_fundus_image(prompt, output_path, "$MODEL_PATH", "$DEVICE")
-EOF
-
-    # Run the generation
-    UV_NO_SYNC=1 uv run python temp_generate.py
+    # Use the working generate.py script with BioMedBERT support
+    UV_NO_SYNC=1 uv run python generate.py \
+        --pretrained_model "$MODEL_PATH" \
+        --prompt "$prompt" \
+        --img_num 1 \
+        --device "$DEVICE" \
+        --num_inference_steps 50 \
+        --precision float32 \
+        --height 256 \
+        --width 256 \
+        --scheduler "euler_a" \
+        --output_dir "$temp_output_dir"
     
-    # Clean up temp file
-    rm -f temp_generate.py
+    # Move the generated image to the final location with proper naming
+    if [ -f "$temp_output_dir/generated_1.png" ]; then
+        mv "$temp_output_dir/generated_1.png" "$OUTPUT_DIR/diverse_${image_num}.png"
+        echo "Generated: diverse_${image_num}.png"
+    else
+        echo "Warning: No image generated for prompt $image_num"
+    fi
+    
+    # Clean up temp directory
+    rm -rf "$temp_output_dir"
     
     echo "Completed: diverse_${image_num}.png"
     echo
