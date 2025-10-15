@@ -19,22 +19,28 @@ create_csv_for_metrics() {
     local dir=$1
     local csv_file=$2
     
+    if [ -f "$csv_file" ]; then
+        echo "CSV file $csv_file already exists, skipping creation"
+        return
+    fi
+    
+    echo "Creating CSV file: $csv_file"
     echo "path" > "$csv_file"
     for img in "$dir"/*.png; do
         echo "$img" >> "$csv_file"
     done
 }
 
-# Create CSV files
-echo "Creating CSV files for metrics evaluation..."
+# Create CSV files (only if they don't exist)
+echo "Checking CSV files for metrics evaluation..."
 create_csv_for_metrics "$REAL_IMAGES_DIR" "real_images.csv"
 create_csv_for_metrics "$BIOMEDBERT_256_DIR" "biomedbert_256_images.csv"
 create_csv_for_metrics "$FUNDUS_320_DIR" "fundus_320_images.csv"
 
-echo "CSV files created:"
-echo "- real_images.csv (ground truth)"
-echo "- biomedbert_256_images.csv (BioMedBERT 256px)"
-echo "- fundus_320_images.csv (Standard 320px)"
+echo "CSV files status:"
+echo "- real_images.csv (ground truth) - $(if [ -f "real_images.csv" ]; then echo "EXISTS"; else echo "CREATED"; fi)"
+echo "- biomedbert_256_images.csv (BioMedBERT 256px) - $(if [ -f "biomedbert_256_images.csv" ]; then echo "EXISTS"; else echo "CREATED"; fi)"
+echo "- fundus_320_images.csv (Standard 320px) - $(if [ -f "fundus_320_images.csv" ]; then echo "EXISTS"; else echo "CREATED"; fi)"
 
 echo
 echo "=== Running Standard Metrics (FID, IS, SSIM) ==="
@@ -166,8 +172,12 @@ echo
 echo "Medical Metrics saved to: medical_metrics_results.json"
 echo "Standard metrics saved to: biomedbert_256_metrics.txt, fundus_320_metrics.txt"
 
-# Clean up temporary files
-rm -f real_images.csv biomedbert_256_images.csv fundus_320_images.csv evaluate_medical_metrics.py
+# Clean up temporary files (keep CSV files for reuse)
+rm -f evaluate_medical_metrics.py
+echo "CSV files preserved for future evaluations:"
+echo "- real_images.csv (ground truth)"
+echo "- biomedbert_256_images.csv (BioMedBERT 256px)" 
+echo "- fundus_320_images.csv (Standard 320px)"
 
 echo
 echo "=== Evaluation Complete ==="
