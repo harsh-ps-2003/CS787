@@ -147,18 +147,18 @@ More information on all the CLI arguments and the environment are available on y
 
 
 def log_biomedbert_validation(vae, text_encoder, tokenizer, unet, args, accelerator, weight_dtype, epoch):
-    """BioMedBERT-compatible validation using manual pipeline construction"""
+    """BioMedBERT-compatible validation using manual pipeline construction and explicit prompt embeddings."""
     logger.info("Running BioMedBERT validation... ")
-    
+
     # Load scheduler from pretrained model
     from diffusers import PNDMScheduler
     scheduler = PNDMScheduler.from_pretrained(
-        args.pretrained_model_name_or_path, 
+        args.pretrained_model_name_or_path,
         subfolder="scheduler",
-        local_files_only=True
+        local_files_only=True,
     )
-    
-    # Create pipeline manually to avoid tokenizer type issues
+
+    # Create pipeline manually to avoid tokenizer-type coupling
     pipeline = StableDiffusionPipeline(
         vae=accelerator.unwrap_model(vae),
         text_encoder=accelerator.unwrap_model(text_encoder),
@@ -168,7 +168,7 @@ def log_biomedbert_validation(vae, text_encoder, tokenizer, unet, args, accelera
         safety_checker=None,
         feature_extractor=None,
     )
-    
+
     pipeline = pipeline.to(accelerator.device)
     pipeline.set_progress_bar_config(disable=True)
 
@@ -180,15 +180,24 @@ def log_biomedbert_validation(vae, text_encoder, tokenizer, unet, args, accelera
     else:
         generator = torch.Generator(device=accelerator.device).manual_seed(args.seed)
 
-    # Run validation with empty prompts to avoid tokenizer issues
-    validation_prompts = [""]  # Empty prompt for BioMedBERT validation
-    
+    # Run validation on a simple empty prompt to sanity-check without CLIP
+    validation_prompts = [""]
+
     images = []
     for prompt in validation_prompts:
+        # Tokenize with BioMedBERT tokenizer and generate embeddings with attention mask
+        tok = tokenize_prompts(tokenizer, [prompt], max_len=256, device=accelerator.device)
+        neg_tok = tokenize_prompts(tokenizer, [""], max_len=256, device=accelerator.device)
         with torch.autocast(accelerator.device.type):
+            prompt_embeds = text_encoder(tok["input_ids"], attention_mask=tok.get("attention_mask")).last_hidden_state
+            negative_prompt_embeds = text_encoder(
+                neg_tok["input_ids"], attention_mask=neg_tok.get("attention_mask")
+            ).last_hidden_state
             image = pipeline(
-                prompt, 
-                num_inference_steps=20, 
+                prompt_embeds=prompt_embeds,
+                negative_prompt_embeds=negative_prompt_embeds,
+                guidance_scale=7.5,
+                num_inference_steps=20,
                 generator=generator,
                 height=args.resolution,
                 width=args.resolution,
@@ -838,7 +847,20 @@ def main():
 
         images = [Image.open(image_path).convert("RGB") for image_path in examples[image_column]]
         examples["pixel_values"] = [train_transforms(image) for image in images]
-        examples["input_ids"] = tokenize_captions(examples)
+
+        # Build captions and tokenize with attention masks for BioMedBERT
+        captions = []
+        for caption in examples[caption_column]:
+            if isinstance(caption, str):
+                captions.append(caption)
+            elif isinstance(caption, (list, np.ndarray)):
+                captions.append(random.choice(caption))
+            else:
+                raise ValueError("Caption column should be str or list.")
+        toks = tokenize_prompts(tokenizer, captions, max_len=256, device="cpu")
+        examples["input_ids"] = toks["input_ids"]
+        if "attention_mask" in toks:
+            examples["attention_mask"] = toks["attention_mask"]
         return examples
 
     with accelerator.main_process_first():
@@ -851,7 +873,11 @@ def main():
         pixel_values = torch.stack([example["pixel_values"] for example in examples])
         pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
         input_ids = torch.stack([example["input_ids"] for example in examples])
-        return {"pixel_values": pixel_values, "input_ids": input_ids}
+        batch = {"pixel_values": pixel_values, "input_ids": input_ids}
+        if "attention_mask" in examples[0]:
+            attention_mask = torch.stack([example["attention_mask"] for example in examples])
+            batch["attention_mask"] = attention_mask
+        return batch
 
     # DataLoaders creation:
     train_dataloader = torch.utils.data.DataLoader(
@@ -990,8 +1016,10 @@ def main():
                 else:
                     noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
 
-                # Get the text embedding for conditioning
-                encoder_hidden_states = text_encoder(batch["input_ids"], attention_mask=None).last_hidden_state
+                # Get the text embedding for conditioning (pass attention_mask if available)
+                encoder_hidden_states = text_encoder(
+                    batch["input_ids"], attention_mask=batch.get("attention_mask")
+                ).last_hidden_state
 
                 # Get the target for loss depending on the prediction type
                 if args.prediction_type is not None:
@@ -1122,7 +1150,9 @@ def main():
                 text_encoder=text_encoder,
                 tokenizer=tokenizer,
                 unet=unet,
-                scheduler=DDPMScheduler.from_pretrained(args.pretrained_model_name_or_path, subfolder="scheduler", local_files_only=True),
+                scheduler=DDPMScheduler.from_pretrained(
+                    args.pretrained_model_name_or_path, subfolder="scheduler", local_files_only=True
+                ),
                 safety_checker=None,
                 feature_extractor=None,
             )
@@ -1130,7 +1160,8 @@ def main():
 
         # Run a final round of inference.
         images = []
-        if args.validation_prompts is not None:
+        # Skip final inference if no meaningful validation prompt was supplied
+        if args.validation_prompts and any(p.strip() for p in args.validation_prompts):
             logger.info("Running inference for collecting generated images...")
             pipeline = pipeline.to(accelerator.device)
             pipeline.torch_dtype = weight_dtype
@@ -1144,10 +1175,27 @@ def main():
             else:
                 generator = torch.Generator(device=accelerator.device).manual_seed(args.seed)
 
-            for i in range(len(args.validation_prompts)):
-                with torch.autocast("cuda"):
-                    image = pipeline(args.validation_prompts[i], num_inference_steps=50, generator=generator).images[0]
-                images.append(image)
+            # If using BioMedBERT, build embeddings explicitly and pass attention masks
+            if hasattr(args, 'med_text_encoder_id') and args.med_text_encoder_id:
+                for prompt in args.validation_prompts:
+                    toks = tokenize_prompts(tokenizer, [prompt], max_len=256, device=accelerator.device)
+                    neg_toks = tokenize_prompts(tokenizer, [""], max_len=256, device=accelerator.device)
+                    with torch.autocast("cuda"):
+                        p_embeds = text_encoder(toks["input_ids"], attention_mask=toks.get("attention_mask")).last_hidden_state
+                        n_embeds = text_encoder(neg_toks["input_ids"], attention_mask=neg_toks.get("attention_mask")).last_hidden_state
+                        image = pipeline(
+                            prompt_embeds=p_embeds,
+                            negative_prompt_embeds=n_embeds,
+                            guidance_scale=7.5,
+                            num_inference_steps=50,
+                            generator=generator,
+                        ).images[0]
+                    images.append(image)
+            else:
+                for prompt in args.validation_prompts:
+                    with torch.autocast("cuda"):
+                        image = pipeline(prompt, num_inference_steps=50, generator=generator).images[0]
+                    images.append(image)
 
         if args.push_to_hub:
             save_model_card(args, repo_id, images, repo_folder=args.output_dir)
@@ -1157,6 +1205,10 @@ def main():
                 commit_message="End of training",
                 ignore_patterns=["step_*", "epoch_*"],
             )
+
+    # else case: no prompts – just skip inference gracefully
+    else:
+        logger.info("No validation prompts provided; skipping final inference step.")
 
     accelerator.end_training()
 
