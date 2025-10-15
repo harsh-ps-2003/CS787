@@ -150,14 +150,14 @@ def load_model(args):
                         base_id,
                         unet=unet,
                         text_encoder=text_encoder,
-                        tokenizer=tokenizer,
                         torch_dtype=torch_dtype,
                         safety_checker=None,
                         requires_safety_checker=False,
                         use_safetensors=True,
                     ).to(args.device)
-                    # Mark pipeline as BioMedBERT for downstream logic
+                    # Mark pipeline as BioMedBERT for downstream logic and stash tokenizer
                     setattr(pipe, "_is_biomedbert", True)
+                    setattr(pipe, "_med_tokenizer", tokenizer)
                 except Exception:
                     # Fallback: load as a regular pipeline if med encoder unavailable
                     pipe = StableDiffusionPipeline.from_pretrained(
@@ -197,12 +197,14 @@ def load_model(args):
                     args.pretrained_model,
                     unet=unet,
                     text_encoder=text_encoder,
-                    tokenizer=tokenizer,
                     torch_dtype=torch_dtype,
                     safety_checker=None,
                     requires_safety_checker=False,
                     use_safetensors=True
                 ).to(args.device)
+                # Stash BioMedBERT tokenizer for explicit embedding path
+                setattr(pipe, "_is_biomedbert", True)
+                setattr(pipe, "_med_tokenizer", tokenizer)
             else:
                 pipe = StableDiffusionPipeline.from_pretrained(
                     args.pretrained_model,
@@ -309,8 +311,12 @@ def main():
             if is_biomedbert:
                 # Use explicit prompt embeddings for BioMedBERT
                 from utils.prompt_utils import tokenize_prompts
-                toks = tokenize_prompts(pipe.tokenizer, [args.prompt], max_len=256, device=args.device)
-                neg_toks = tokenize_prompts(pipe.tokenizer, [""], max_len=256, device=args.device)
+                med_tok = getattr(pipe, "_med_tokenizer", None)
+                if med_tok is None:
+                    print("Warning: BioMedBERT detected but tokenizer missing; falling back to pipeline tokenizer.")
+                    med_tok = pipe.tokenizer
+                toks = tokenize_prompts(med_tok, [args.prompt], max_len=256, device=args.device)
+                neg_toks = tokenize_prompts(med_tok, [""], max_len=256, device=args.device)
                 
                 device_type = "cuda" if str(args.device).startswith("cuda") else "cpu"
                 with torch.autocast(device_type):
