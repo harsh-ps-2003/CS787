@@ -44,7 +44,7 @@ def load_inception_model():
     return inception
 
 
-def read_images(folder_path, transform=None):
+def read_images(folder_path, transform=None, target_size=(256, 256)):
     image_files = [
         f for f in os.listdir(folder_path) if f.endswith((".png", ".jpg", ".jpeg"))
     ]
@@ -52,6 +52,10 @@ def read_images(folder_path, transform=None):
     for image_file in image_files:
         image_path = os.path.join(folder_path, image_file)
         image = Image.open(image_path).convert("RGB")
+        
+        # Resize to target size to ensure consistent dimensions
+        image = image.resize(target_size, Image.Resampling.LANCZOS)
+        
         if transform == None:
             input_tensor = transforms.ToTensor()(image)
         else:
