@@ -145,14 +145,37 @@ def load_model(args):
             unet_path = os.path.join(args.model_used, 'unet')
             unet = UNet2DConditionModel.from_pretrained(unet_path)
             
-            pipe = StableDiffusionPipeline.from_pretrained(
-                args.pretrained_model,
-                unet=unet, 
-                torch_dtype=torch_dtype,
-                safety_checker=None,
-                requires_safety_checker=False,
-                use_safetensors=True
-            ).to(args.device)
+            # Check if this is a BioMedBERT model by looking for text_encoder directory
+            text_encoder_path = os.path.join(args.model_used, 'text_encoder')
+            if os.path.exists(text_encoder_path):
+                print("Detected BioMedBERT model - loading custom text encoder and tokenizer")
+                from utils.medical_text_encoder import load_med_encoder
+                tokenizer, text_encoder = load_med_encoder(
+                    model_id="microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext",
+                    device=args.device,
+                    dtype=torch_dtype,
+                    trainable=False
+                )
+                
+                pipe = StableDiffusionPipeline.from_pretrained(
+                    args.pretrained_model,
+                    unet=unet,
+                    text_encoder=text_encoder,
+                    tokenizer=tokenizer,
+                    torch_dtype=torch_dtype,
+                    safety_checker=None,
+                    requires_safety_checker=False,
+                    use_safetensors=True
+                ).to(args.device)
+            else:
+                pipe = StableDiffusionPipeline.from_pretrained(
+                    args.pretrained_model,
+                    unet=unet, 
+                    torch_dtype=torch_dtype,
+                    safety_checker=None,
+                    requires_safety_checker=False,
+                    use_safetensors=True
+                ).to(args.device)
         # Swap scheduler to a safer default
         try:
             if args.scheduler == "dpm":
@@ -240,15 +263,40 @@ def main():
     
     # Generate images
     try:
+        # Check if this is a BioMedBERT model
+        text_encoder_path = os.path.join(args.model_used, 'text_encoder') if args.model_used else None
+        is_biomedbert = text_encoder_path and os.path.exists(text_encoder_path)
+        
         for i in range(args.img_num):
             print(f"Generating image {i+1}/{args.img_num}...")
-            image = pipe(
-                prompt=args.prompt, 
-                num_inference_steps=args.num_inference_steps,
-                guidance_scale=7.5,  # Standard CFG scale
-                height=args.height,
-                width=args.width
-            ).images[0]
+            
+            if is_biomedbert:
+                # Use explicit prompt embeddings for BioMedBERT
+                from utils.prompt_utils import tokenize_prompts
+                toks = tokenize_prompts(pipe.tokenizer, [args.prompt], max_len=256, device=args.device)
+                neg_toks = tokenize_prompts(pipe.tokenizer, [""], max_len=256, device=args.device)
+                
+                with torch.autocast(args.device):
+                    prompt_embeds = pipe.text_encoder(toks["input_ids"], attention_mask=toks.get("attention_mask")).last_hidden_state
+                    negative_prompt_embeds = pipe.text_encoder(neg_toks["input_ids"], attention_mask=neg_toks.get("attention_mask")).last_hidden_state
+                
+                image = pipe(
+                    prompt_embeds=prompt_embeds,
+                    negative_prompt_embeds=negative_prompt_embeds,
+                    num_inference_steps=args.num_inference_steps,
+                    guidance_scale=7.5,
+                    height=args.height,
+                    width=args.width
+                ).images[0]
+            else:
+                # Standard generation for CLIP-based models
+                image = pipe(
+                    prompt=args.prompt, 
+                    num_inference_steps=args.num_inference_steps,
+                    guidance_scale=7.5,  # Standard CFG scale
+                    height=args.height,
+                    width=args.width
+                ).images[0]
             
             output_path = os.path.join(args.output_dir, f"generated_{i+1}.png")
             image.save(output_path)
