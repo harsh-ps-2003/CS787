@@ -93,6 +93,24 @@ def parse_args():
         choices=["dpm", "euler_a", "euler", "pndm"],
         help="Diffusion scheduler to use (default: dpm)."
     )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Random seed for reproducible generation. If None, uses random seed for diversity."
+    )
+    parser.add_argument(
+        "--guidance_scale",
+        type=float,
+        default=7.5,
+        help="Guidance scale for classifier-free guidance (default: 7.5). Lower values increase diversity."
+    )
+    parser.add_argument(
+        "--negative_prompt",
+        type=str,
+        default="",
+        help="Negative prompt to avoid certain features (default: empty)."
+    )
     args = parser.parse_args()
     return args
 
@@ -321,6 +339,18 @@ def main():
         for i in range(args.img_num):
             print(f"Generating image {i+1}/{args.img_num}...")
             
+            # Set random seed for diversity (if not specified)
+            if args.seed is None:
+                import random
+                current_seed = random.randint(0, 2**31 - 1)
+                print(f"  Using random seed: {current_seed}")
+            else:
+                current_seed = args.seed
+                print(f"  Using fixed seed: {current_seed}")
+            
+            # Set the generator for reproducible results
+            generator = torch.Generator(device=args.device).manual_seed(current_seed)
+            
             if is_biomedbert:
                 # Use explicit prompt embeddings for BioMedBERT
                 from utils.prompt_utils import tokenize_prompts
@@ -328,8 +358,13 @@ def main():
                 if med_tok is None:
                     print("Warning: BioMedBERT detected but tokenizer missing; falling back to pipeline tokenizer.")
                     med_tok = pipe.tokenizer
+                
+                # Tokenize main prompt
                 toks = tokenize_prompts(med_tok, [args.prompt], max_len=256, device=args.device)
-                neg_toks = tokenize_prompts(med_tok, [""], max_len=256, device=args.device)
+                
+                # Tokenize negative prompt (if provided)
+                neg_prompt = args.negative_prompt if args.negative_prompt else ""
+                neg_toks = tokenize_prompts(med_tok, [neg_prompt], max_len=256, device=args.device)
                 
                 # Compute embeddings in float32 for stability then cast to UNet dtype
                 with torch.no_grad():
@@ -350,16 +385,19 @@ def main():
                     prompt_embeds=prompt_embeds,
                     negative_prompt_embeds=negative_prompt_embeds,
                     num_inference_steps=args.num_inference_steps,
-                    guidance_scale=7.5,
+                    guidance_scale=args.guidance_scale,
+                    generator=generator,
                     height=args.height,
                     width=args.width,
                 ).images[0]
             else:
                 # Standard generation for CLIP-based models
                 image = pipe(
-                    prompt=args.prompt, 
+                    prompt=args.prompt,
+                    negative_prompt=args.negative_prompt if args.negative_prompt else None,
                     num_inference_steps=args.num_inference_steps,
-                    guidance_scale=7.5,  # Standard CFG scale
+                    guidance_scale=args.guidance_scale,
+                    generator=generator,
                     height=args.height,
                     width=args.width
                 ).images[0]
