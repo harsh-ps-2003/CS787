@@ -14,33 +14,11 @@ REAL_IMAGES_DIR="datasets/example/fundus"
 BIOMEDBERT_256_DIR="generated_biomedbert_256"
 FUNDUS_320_DIR="generated_fundus_320_9"
 
-# Create CSV files for metrics evaluation
-create_csv_for_metrics() {
-    local dir=$1
-    local csv_file=$2
-    
-    if [ -f "$csv_file" ]; then
-        echo "CSV file $csv_file already exists, skipping creation"
-        return
-    fi
-    
-    echo "Creating CSV file: $csv_file"
-    echo "path" > "$csv_file"
-    for img in "$dir"/*.png; do
-        echo "$img" >> "$csv_file"
-    done
-}
-
-# Create CSV files (only if they don't exist)
-echo "Checking CSV files for metrics evaluation..."
-create_csv_for_metrics "$REAL_IMAGES_DIR" "real_images.csv"
-create_csv_for_metrics "$BIOMEDBERT_256_DIR" "biomedbert_256_images.csv"
-create_csv_for_metrics "$FUNDUS_320_DIR" "fundus_320_images.csv"
-
-echo "CSV files status:"
-echo "- real_images.csv (ground truth) - $(if [ -f "real_images.csv" ]; then echo "EXISTS"; else echo "CREATED"; fi)"
-echo "- biomedbert_256_images.csv (BioMedBERT 256px) - $(if [ -f "biomedbert_256_images.csv" ]; then echo "EXISTS"; else echo "CREATED"; fi)"
-echo "- fundus_320_images.csv (Standard 320px) - $(if [ -f "fundus_320_images.csv" ]; then echo "EXISTS"; else echo "CREATED"; fi)"
+# Check if directories exist
+echo "Checking directories for metrics evaluation..."
+echo "- Ground truth: $REAL_IMAGES_DIR ($(if [ -d "$REAL_IMAGES_DIR" ]; then echo "EXISTS"; else echo "MISSING"; fi))"
+echo "- BioMedBERT 256px: $BIOMEDBERT_256_DIR ($(if [ -d "$BIOMEDBERT_256_DIR" ]; then echo "EXISTS"; else echo "MISSING"; fi))"
+echo "- Standard 320px: $FUNDUS_320_DIR ($(if [ -d "$FUNDUS_320_DIR" ]; then echo "EXISTS"; else echo "MISSING"; fi))"
 
 echo
 echo "=== Running Standard Metrics (FID, IS, SSIM) ==="
@@ -48,14 +26,14 @@ echo "=== Running Standard Metrics (FID, IS, SSIM) ==="
 # Run metrics evaluation
 echo "Evaluating BioMedBERT 256px vs Ground Truth..."
 UV_NO_SYNC=1 uv run python metrics/metrics.py \
-    --real_images real_images.csv \
-    --generated_images biomedbert_256_images.csv \
+    --real_images "$REAL_IMAGES_DIR" \
+    --generated_images "$BIOMEDBERT_256_DIR" \
     --device cuda:1 > biomedbert_256_metrics.txt 2>&1
 
 echo "Evaluating Standard 320px vs Ground Truth..."
 UV_NO_SYNC=1 uv run python metrics/metrics.py \
-    --real_images real_images.csv \
-    --generated_images fundus_320_images.csv \
+    --real_images "$REAL_IMAGES_DIR" \
+    --generated_images "$FUNDUS_320_DIR" \
     --device cuda:1 > fundus_320_metrics.txt 2>&1
 
 echo
@@ -172,12 +150,9 @@ echo
 echo "Medical Metrics saved to: medical_metrics_results.json"
 echo "Standard metrics saved to: biomedbert_256_metrics.txt, fundus_320_metrics.txt"
 
-# Clean up temporary files (keep CSV files for reuse)
+# Clean up temporary files
 rm -f evaluate_medical_metrics.py
-echo "CSV files preserved for future evaluations:"
-echo "- real_images.csv (ground truth)"
-echo "- biomedbert_256_images.csv (BioMedBERT 256px)" 
-echo "- fundus_320_images.csv (Standard 320px)"
+echo "Evaluation complete - check the generated metric files for results."
 
 echo
 echo "=== Evaluation Complete ==="
