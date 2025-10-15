@@ -159,6 +159,8 @@ def load_model(args):
                     # Mark pipeline as BioMedBERT for downstream logic and stash tokenizer
                     setattr(pipe, "_is_biomedbert", True)
                     setattr(pipe, "_med_tokenizer", tokenizer)
+                    # Force full-precision for stability
+                    pipe.to(dtype=torch.float32)
                 except Exception:
                     # Fallback: load as a regular pipeline if med encoder unavailable
                     pipe = StableDiffusionPipeline.from_pretrained(
@@ -207,6 +209,8 @@ def load_model(args):
                 # Stash BioMedBERT tokenizer for explicit embedding path
                 setattr(pipe, "_is_biomedbert", True)
                 setattr(pipe, "_med_tokenizer", tokenizer)
+                # Force full-precision for stability
+                pipe.to(dtype=torch.float32)
             else:
                 pipe = StableDiffusionPipeline.from_pretrained(
                     args.pretrained_model,
