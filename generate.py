@@ -325,16 +325,16 @@ def main():
                 toks = tokenize_prompts(med_tok, [args.prompt], max_len=256, device=args.device)
                 neg_toks = tokenize_prompts(med_tok, [""], max_len=256, device=args.device)
                 
-                device_type = "cuda" if str(args.device).startswith("cuda") else "cpu"
-                with torch.autocast(device_type):
+                # Compute embeddings in float32 for stability then cast to UNet dtype
+                with torch.no_grad():
                     prompt_embeds = pipe.text_encoder(
                         toks["input_ids"], attention_mask=toks.get("attention_mask")
                     ).last_hidden_state
                     negative_prompt_embeds = pipe.text_encoder(
                         neg_toks["input_ids"], attention_mask=neg_toks.get("attention_mask")
                     ).last_hidden_state
-                # Ensure embeddings match UNet dtype
-                embed_dtype = getattr(pipe.unet, "dtype", torch.float16 if args.precision == "float16" else torch.float32)
+
+                embed_dtype = torch.float16 if args.precision == "float16" else torch.float32
                 prompt_embeds = prompt_embeds.to(dtype=embed_dtype)
                 negative_prompt_embeds = negative_prompt_embeds.to(dtype=embed_dtype)
                 
