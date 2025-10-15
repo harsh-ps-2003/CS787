@@ -136,6 +136,7 @@ def load_model(args):
             if os.path.isdir(args.pretrained_model) and os.path.exists(os.path.join(args.pretrained_model, 'unet')):
                 print(f"Detected fine-tuned checkpoint directory at: {args.pretrained_model}")
                 unet = UNet2DConditionModel.from_pretrained(os.path.join(args.pretrained_model, 'unet'))
+                unet.to(args.device, dtype=torch_dtype)
                 # Assume BioMedBERT for this fine-tuned checkpoint (naming convention)
                 try:
                     from utils.medical_text_encoder import load_med_encoder
@@ -180,6 +181,7 @@ def load_model(args):
             print(f"Loading fine-tuned model from: {args.model_used}")
             unet_path = os.path.join(args.model_used, 'unet')
             unet = UNet2DConditionModel.from_pretrained(unet_path)
+            unet.to(args.device, dtype=torch_dtype)
             
             # Check if this is a BioMedBERT model by looking for text_encoder directory
             text_encoder_path = os.path.join(args.model_used, 'text_encoder')
