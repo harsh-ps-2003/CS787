@@ -17,6 +17,8 @@ from PIL import Image
 import os
 import argparse
 import sys
+# Custom UNet support
+from utils.unet import MedicalUNet
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Generate medical images using MINIM or pre-trained models")
@@ -87,6 +89,11 @@ def parse_args():
         help="Use only the pretrained model without any fine-tuned components."
     )
     parser.add_argument(
+        "--use_custom_unet",
+        action="store_true",
+        help="Whether to use custom MedicalUNet instead of standard UNet2DConditionModel."
+    )
+    parser.add_argument(
         "--scheduler",
         type=str,
         default="dpm",
@@ -153,8 +160,28 @@ def load_model(args):
             # If a local fine-tuned checkpoint directory was passed in as --pretrained_model, reconstruct pipeline
             if os.path.isdir(args.pretrained_model) and os.path.exists(os.path.join(args.pretrained_model, 'unet')):
                 print(f"Detected fine-tuned checkpoint directory at: {args.pretrained_model}")
-                unet = UNet2DConditionModel.from_pretrained(os.path.join(args.pretrained_model, 'unet'))
-                unet.to(args.device, dtype=torch_dtype)
+                unet_path = os.path.join(args.pretrained_model, 'unet')
+                custom_unet_path = os.path.join(unet_path, 'pytorch_model.bin')
+                
+                # Check if custom UNet checkpoint exists
+                if args.use_custom_unet or os.path.exists(custom_unet_path):
+                    print("Loading custom MedicalUNet")
+                    cross_attention_dim = 768
+                    unet = MedicalUNet(
+                        in_channels=4,
+                        out_channels=4,
+                        cross_attention_dim=cross_attention_dim,
+                        time_embed_dim=320,
+                        device=args.device
+                    )
+                    if os.path.exists(custom_unet_path):
+                        state_dict = torch.load(custom_unet_path, map_location=args.device)
+                        unet.load_state_dict(state_dict)
+                        print(f"Loaded custom UNet checkpoint from {custom_unet_path}")
+                    unet.to(args.device, dtype=torch_dtype)
+                else:
+                    unet = UNet2DConditionModel.from_pretrained(unet_path)
+                    unet.to(args.device, dtype=torch_dtype)
                 # Assume BioMedBERT for this fine-tuned checkpoint (naming convention)
                 try:
                     from utils.medical_text_encoder import load_med_encoder
@@ -200,8 +227,30 @@ def load_model(args):
         else:
             print(f"Loading fine-tuned model from: {args.model_used}")
             unet_path = os.path.join(args.model_used, 'unet')
-            unet = UNet2DConditionModel.from_pretrained(unet_path)
-            unet.to(args.device, dtype=torch_dtype)
+            
+            # Check if custom UNet checkpoint exists
+            custom_unet_path = os.path.join(unet_path, 'pytorch_model.bin')
+            if args.use_custom_unet or os.path.exists(custom_unet_path):
+                print("Loading custom MedicalUNet")
+                # Determine cross-attention dimension (default to 768 for BioMedBERT)
+                cross_attention_dim = 768
+                unet = MedicalUNet(
+                    in_channels=4,
+                    out_channels=4,
+                    cross_attention_dim=cross_attention_dim,
+                    time_embed_dim=320,
+                    device=args.device
+                )
+                if os.path.exists(custom_unet_path):
+                    state_dict = torch.load(custom_unet_path, map_location=args.device)
+                    unet.load_state_dict(state_dict)
+                    print(f"Loaded custom UNet checkpoint from {custom_unet_path}")
+                else:
+                    print("Warning: Custom UNet checkpoint not found, using randomly initialized weights")
+                unet.to(args.device, dtype=torch_dtype)
+            else:
+                unet = UNet2DConditionModel.from_pretrained(unet_path)
+                unet.to(args.device, dtype=torch_dtype)
             
             # Check if this is a BioMedBERT model by looking for text_encoder directory
             text_encoder_path = os.path.join(args.model_used, 'text_encoder')
