@@ -657,7 +657,13 @@ def main():
             ).repo_id
 
     # Load scheduler, tokenizer and models.
-    noise_scheduler = DDPMScheduler.from_pretrained(args.pretrained_model_name_or_path, subfolder="scheduler")
+    # Use local_files_only if offline mode is enabled
+    use_local_files = os.environ.get("HF_HUB_OFFLINE", "0") == "1"
+    noise_scheduler = DDPMScheduler.from_pretrained(
+        args.pretrained_model_name_or_path, 
+        subfolder="scheduler",
+        local_files_only=use_local_files
+    )
     # Load medical tokenizer + encoder
     tokenizer, text_encoder = load_med_encoder(
         model_id=args.med_text_encoder_id,
@@ -678,7 +684,10 @@ def main():
 
     # Load VAE - simplified for non-DeepSpeed usage
     vae = AutoencoderKL.from_pretrained(
-        args.pretrained_model_name_or_path, subfolder="vae", revision=args.revision
+        args.pretrained_model_name_or_path, 
+        subfolder="vae", 
+        revision=args.revision,
+        local_files_only=use_local_files
     )
 
     # Load UNet: either custom MedicalUNet or standard UNet2DConditionModel
@@ -696,7 +705,10 @@ def main():
         unet = unet.to(accelerator.device, dtype=torch.float32 if accelerator.mixed_precision == "no" else torch.float16)
     else:
         unet = UNet2DConditionModel.from_pretrained(
-            args.pretrained_model_name_or_path, subfolder="unet", revision=args.non_ema_revision
+            args.pretrained_model_name_or_path, 
+            subfolder="unet", 
+            revision=args.non_ema_revision,
+            local_files_only=use_local_files
         )
 
     # Freeze vae and text_encoder and set unet to trainable
@@ -720,7 +732,10 @@ def main():
             ema_unet = EMAModel(ema_unet.parameters(), model_cls=MedicalUNet, model_config=None)
         else:
             ema_unet = UNet2DConditionModel.from_pretrained(
-                args.pretrained_model_name_or_path, subfolder="unet", revision=args.revision
+                args.pretrained_model_name_or_path, 
+                subfolder="unet", 
+                revision=args.revision,
+                local_files_only=use_local_files
             )
             ema_unet = EMAModel(ema_unet.parameters(), model_cls=UNet2DConditionModel, model_config=ema_unet.config)
 
