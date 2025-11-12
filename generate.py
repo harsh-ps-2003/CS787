@@ -327,7 +327,9 @@ def load_model(args):
                 pass
         except Exception:
             pass
-        
+        print(f"[INFO] Model successfully loaded to device: {args.device}")
+        print(f"[INFO] Precision mode: {args.precision}")
+        print(f"[INFO] Using scheduler: {args.scheduler}")
         return pipe
     except Exception as e:
         print(f"Error loading model: {str(e)}")
