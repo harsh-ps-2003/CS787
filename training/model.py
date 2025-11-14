@@ -1024,8 +1024,27 @@ def main():
 
     def preprocess_train(examples):
         from PIL import Image
-
-        images = [Image.open(image_path).convert("RGB") for image_path in examples[image_column]]
+        import os
+        
+        # Resolve image paths: if relative, make them relative to the CSV file location
+        # or project root; if absolute, use as-is
+        resolved_paths = []
+        for image_path in examples[image_column]:
+            if os.path.isabs(image_path):
+                # Absolute path - use as-is
+                resolved_paths.append(image_path)
+            else:
+                # Relative path - try relative to CSV location first, then project root
+                csv_dir = os.path.dirname(os.path.abspath(args.train_data_dir)) if args.train_data_dir else os.getcwd()
+                # Try relative to CSV directory first
+                candidate_path = os.path.join(csv_dir, image_path)
+                if os.path.exists(candidate_path):
+                    resolved_paths.append(candidate_path)
+                else:
+                    # Fallback: try relative to current working directory
+                    resolved_paths.append(image_path)
+        
+        images = [Image.open(image_path).convert("RGB") for image_path in resolved_paths]
         examples["pixel_values"] = [train_transforms(image) for image in images]
 
         # Build captions and tokenize with attention masks for BioMedBERT

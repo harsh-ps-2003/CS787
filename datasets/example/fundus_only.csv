@@ -1,11 +1,11 @@
 path,Text,modality
-/home/harshps22ugp/projects/CS787/datasets/example/fundus/0.jpg,Fundus: The fundus image shows a normal retina.,Fundus
-/home/harshps22ugp/projects/CS787/datasets/example/fundus/1.jpg,Fundus: The scan reveals a healthy optic nerve and retina.,Fundus
-/home/harshps22ugp/projects/CS787/datasets/example/fundus/2.jpg,Fundus: The fundus photo displays no abnormalities.,Fundus
-/home/harshps22ugp/projects/CS787/datasets/example/fundus/3.jpg,Fundus: The image highlights a clear and healthy retina.,Fundus
-/home/harshps22ugp/projects/CS787/datasets/example/fundus/4.jpg,Fundus: The fundus view indicates no signs of disease.,Fundus
-/home/harshps22ugp/projects/CS787/datasets/example/fundus/5.jpg,Fundus: The fundus image shows a normal retina.,Fundus
-/home/harshps22ugp/projects/CS787/datasets/example/fundus/6.jpg,Fundus: The scan reveals a healthy optic nerve and retina.,Fundus
-/home/harshps22ugp/projects/CS787/datasets/example/fundus/7.jpg,Fundus: The fundus photo displays no abnormalities.,Fundus
-/home/harshps22ugp/projects/CS787/datasets/example/fundus/8.jpg,Fundus: The image highlights a clear and healthy retina.,Fundus
-/home/harshps22ugp/projects/CS787/datasets/example/fundus/9.jpg,Fundus: The fundus view indicates no signs of disease.,Fundus
+datasets/example/fundus/0.jpg,Fundus: The fundus image shows a normal retina.,Fundus
+datasets/example/fundus/1.jpg,Fundus: The scan reveals a healthy optic nerve and retina.,Fundus
+datasets/example/fundus/2.jpg,Fundus: The fundus photo displays no abnormalities.,Fundus
+datasets/example/fundus/3.jpg,Fundus: The image highlights a clear and healthy retina.,Fundus
+datasets/example/fundus/4.jpg,Fundus: The fundus view indicates no signs of disease.,Fundus
+datasets/example/fundus/5.jpg,Fundus: The fundus image shows a normal retina.,Fundus
+datasets/example/fundus/6.jpg,Fundus: The scan reveals a healthy optic nerve and retina.,Fundus
+datasets/example/fundus/7.jpg,Fundus: The fundus photo displays no abnormalities.,Fundus
+datasets/example/fundus/8.jpg,Fundus: The image highlights a clear and healthy retina.,Fundus
+datasets/example/fundus/9.jpg,Fundus: The fundus view indicates no signs of disease.,Fundus
