@@ -611,6 +611,14 @@ def parse_args():
 
 def main():
     args = parse_args()
+    
+    # Debug: Check CUDA availability before accelerator init
+    if torch.cuda.is_available():
+        print(f"[DEBUG] CUDA is available. Device count: {torch.cuda.device_count()}")
+        for i in range(torch.cuda.device_count()):
+            print(f"[DEBUG]   GPU {i}: {torch.cuda.get_device_name(i)}")
+    else:
+        print("[DEBUG] CUDA is NOT available!")
 
     if args.non_ema_revision is not None:
         deprecate(
@@ -640,6 +648,14 @@ def main():
         level=logging.INFO,
     )
     logger.info(accelerator.state, main_process_only=False)
+    
+    # Debug: Check what device accelerator is using
+    print(f"[DEBUG] Accelerator device: {accelerator.device}")
+    print(f"[DEBUG] Accelerator device type: {type(accelerator.device)}")
+    if torch.cuda.is_available() and accelerator.device.type == 'cpu':
+        print("[WARNING] CUDA is available but accelerator is using CPU!")
+        print("[WARNING] This may be due to accelerate config. Check ~/.cache/huggingface/accelerate/")
+    
     if accelerator.is_local_main_process:
         datasets.utils.logging.set_verbosity_warning()
         transformers.utils.logging.set_verbosity_warning()
