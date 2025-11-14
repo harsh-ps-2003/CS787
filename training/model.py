@@ -50,8 +50,6 @@ from utils.medical_text_encoder import load_med_encoder
 from utils.prompt_utils import tokenize_prompts
 # Attention-gated skip connections for the default Stable Diffusion UNet
 from utils.attention_gates import add_attention_gates_to_unet
-# --- Custom UNet for medical images ---
-from utils.unet import MedicalUNet
 
 import diffusers
 from diffusers import AutoencoderKL, DDPMScheduler, StableDiffusionPipeline, UNet2DConditionModel
@@ -701,36 +699,26 @@ def main():
         local_files_only=use_local_files
     )
 
-    # Load UNet: either custom MedicalUNet or standard UNet2DConditionModel
+    # Load UNet: standard UNet2DConditionModel (custom MedicalUNet removed)
     if args.use_custom_unet:
-        logger.info("Using custom MedicalUNet for medical image generation")
-        # Get cross-attention dimension from text encoder
-        cross_attention_dim = text_encoder.config.hidden_size if hasattr(text_encoder, 'config') else 768
-        unet = MedicalUNet(
-            in_channels=4,
-            out_channels=4,
-            cross_attention_dim=cross_attention_dim,
-            time_embed_dim=320,
-            device=accelerator.device
+        raise ValueError(
+            "Custom MedicalUNet is no longer available. "
+            "Use the default UNet2DConditionModel with --use_skip_attention_gates instead."
         )
-        unet = unet.to(
-            accelerator.device,
-            dtype=torch.float32 if accelerator.mixed_precision == "no" else torch.float16,
-        )
-    else:
-        unet = UNet2DConditionModel.from_pretrained(
-            args.pretrained_model_name_or_path, 
-            subfolder="unet", 
-            revision=args.non_ema_revision,
-            local_files_only=use_local_files
-        )
+    
+    unet = UNet2DConditionModel.from_pretrained(
+        args.pretrained_model_name_or_path, 
+        subfolder="unet", 
+        revision=args.non_ema_revision,
+        local_files_only=use_local_files
+    )
 
-        # Optionally augment the default Stable Diffusion UNet with attention-gated
-        # skip connections as suggested in the medical imaging literature
-        # (e.g. attention U-Net / TransUNet++ style designs).
-        if args.use_skip_attention_gates:
-            logger.info("Enabling attention-gated skip connections on default UNet2DConditionModel")
-            add_attention_gates_to_unet(unet, verbose=accelerator.is_main_process)
+    # Optionally augment the default Stable Diffusion UNet with attention-gated
+    # skip connections as suggested in the medical imaging literature
+    # (e.g. attention U-Net / TransUNet++ style designs).
+    if args.use_skip_attention_gates:
+        logger.info("Enabling attention-gated skip connections on default UNet2DConditionModel")
+        add_attention_gates_to_unet(unet, verbose=accelerator.is_main_process)
 
     # Freeze vae and text_encoder and set unet to trainable
     vae.requires_grad_(False)
@@ -739,26 +727,16 @@ def main():
 
     # Create EMA for the unet.
     if args.use_ema:
-        if args.use_custom_unet:
-            # For custom UNet, create a copy for EMA
-            cross_attention_dim = text_encoder.config.hidden_size if hasattr(text_encoder, 'config') else 768
-            ema_unet = MedicalUNet(
-                in_channels=4,
-                out_channels=4,
-                cross_attention_dim=cross_attention_dim,
-                time_embed_dim=320,
-                device=accelerator.device
-            )
-            ema_unet.load_state_dict(unet.state_dict())
-            ema_unet = EMAModel(ema_unet.parameters(), model_cls=MedicalUNet, model_config=None)
-        else:
-            ema_unet = UNet2DConditionModel.from_pretrained(
-                args.pretrained_model_name_or_path, 
-                subfolder="unet", 
-                revision=args.revision,
-                local_files_only=use_local_files
-            )
-            ema_unet = EMAModel(ema_unet.parameters(), model_cls=UNet2DConditionModel, model_config=ema_unet.config)
+        ema_unet = UNet2DConditionModel.from_pretrained(
+            args.pretrained_model_name_or_path, 
+            subfolder="unet", 
+            revision=args.revision,
+            local_files_only=use_local_files
+        )
+        # Apply attention gates to EMA UNet if enabled
+        if args.use_skip_attention_gates:
+            add_attention_gates_to_unet(ema_unet, verbose=False)
+        ema_unet = EMAModel(ema_unet.parameters(), model_cls=UNet2DConditionModel, model_config=ema_unet.config)
 
     if args.enable_xformers_memory_efficient_attention:
         if is_xformers_available():
@@ -769,11 +747,7 @@ def main():
                 logger.warn(
                     "xFormers 0.0.16 cannot be used for training in some GPUs. If you observe problems during training, please update xFormers to at least 0.0.17. See https://huggingface.co/docs/diffusers/main/en/optimization/xformers for more details."
                 )
-            # Custom UNet doesn't have xformers support, skip for now
-            if not args.use_custom_unet:
-                unet.enable_xformers_memory_efficient_attention()
-            else:
-                logger.info("xFormers not supported for custom UNet, skipping")
+            unet.enable_xformers_memory_efficient_attention()
         else:
             raise ValueError("xformers is not available. Make sure it is installed correctly")
 
@@ -783,59 +757,34 @@ def main():
         def save_model_hook(models, weights, output_dir):
             if accelerator.is_main_process:
                 if args.use_ema:
-                    if args.use_custom_unet:
-                        # Save custom UNet as PyTorch state_dict
-                        torch.save(ema_unet.state_dict(), os.path.join(output_dir, "unet_ema", "pytorch_model.bin"))
-                    else:
-                        ema_unet.save_pretrained(os.path.join(output_dir, "unet_ema"))
+                    ema_unet.save_pretrained(os.path.join(output_dir, "unet_ema"))
 
                 for i, model in enumerate(models):
-                    if args.use_custom_unet:
-                        # Save custom UNet as PyTorch state_dict
-                        os.makedirs(os.path.join(output_dir, "unet"), exist_ok=True)
-                        torch.save(model.state_dict(), os.path.join(output_dir, "unet", "pytorch_model.bin"))
-                    else:
-                        model.save_pretrained(os.path.join(output_dir, "unet"))
-
+                    model.save_pretrained(os.path.join(output_dir, "unet"))
                     # make sure to pop weight so that corresponding model is not saved again
                     weights.pop()
 
         def load_model_hook(models, input_dir):
             if args.use_ema:
-                if args.use_custom_unet:
-                    # Load custom UNet from PyTorch state_dict
-                    state_dict = torch.load(os.path.join(input_dir, "unet_ema", "pytorch_model.bin"), map_location=accelerator.device)
-                    ema_unet.load_state_dict(state_dict)
-                    ema_unet.to(accelerator.device)
-                else:
-                    load_model = EMAModel.from_pretrained(os.path.join(input_dir, "unet_ema"), UNet2DConditionModel)
-                    ema_unet.load_state_dict(load_model.state_dict())
-                    ema_unet.to(accelerator.device)
-                    del load_model
+                load_model = EMAModel.from_pretrained(os.path.join(input_dir, "unet_ema"), UNet2DConditionModel)
+                ema_unet.load_state_dict(load_model.state_dict())
+                ema_unet.to(accelerator.device)
+                del load_model
 
             for i in range(len(models)):
                 # pop models so that they are not loaded again
                 model = models.pop()
-
-                if args.use_custom_unet:
-                    # Load custom UNet from PyTorch state_dict
-                    state_dict = torch.load(os.path.join(input_dir, "unet", "pytorch_model.bin"), map_location=accelerator.device)
-                    model.load_state_dict(state_dict)
-                else:
-                    # load diffusers style into model
-                    load_model = UNet2DConditionModel.from_pretrained(input_dir, subfolder="unet")
-                    model.register_to_config(**load_model.config)
-                    model.load_state_dict(load_model.state_dict())
-                    del load_model
+                # load diffusers style into model
+                load_model = UNet2DConditionModel.from_pretrained(input_dir, subfolder="unet")
+                model.register_to_config(**load_model.config)
+                model.load_state_dict(load_model.state_dict())
+                del load_model
 
         accelerator.register_save_state_pre_hook(save_model_hook)
         accelerator.register_load_state_pre_hook(load_model_hook)
 
     if args.gradient_checkpointing:
-        if args.use_custom_unet:
-            logger.warn("Gradient checkpointing not yet implemented for custom UNet, skipping")
-        else:
-            unet.enable_gradient_checkpointing()
+        unet.enable_gradient_checkpointing()
 
     # Enable TF32 for faster training on Ampere GPUs,
     # cf https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices
