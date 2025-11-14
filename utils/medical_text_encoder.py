@@ -26,8 +26,10 @@ def load_med_encoder(model_id: str = DEFAULT_MED_ENCODER,
     -------
     tokenizer, model
     """
-    # Check if we're in offline mode but allow downloading if PyTorch weights aren't cached
-    local_files_only = os.environ.get("HF_HUB_OFFLINE", "0") == "1"
+    # Check if we're in offline mode (check both env vars)
+    hf_offline = os.environ.get("HF_HUB_OFFLINE", "0") == "1"
+    transformers_offline = os.environ.get("TRANSFORMERS_OFFLINE", "0") == "1"
+    local_files_only = hf_offline or transformers_offline
     
     tokenizer = AutoTokenizer.from_pretrained(
         model_id, 
@@ -44,27 +46,61 @@ def load_med_encoder(model_id: str = DEFAULT_MED_ENCODER,
             model_id,
             local_files_only=local_files_only
         )
-    except (OSError, EnvironmentError) as e:
+    except (OSError, EnvironmentError, Exception) as e:
         error_str = str(e)
-        if ("Flax weights" in error_str or "pytorch_model.bin" in error_str) and local_files_only:
+        error_type = type(e).__name__
+        # Check if this is the Flax-only error (multiple possible error messages)
+        is_flax_error = (
+            "Flax weights" in error_str or 
+            "pytorch_model.bin" in error_str or
+            "from_flax=True" in error_str
+        )
+        
+        if is_flax_error and local_files_only:
             # If offline mode but only Flax weights cached, temporarily allow download
             # to fetch PyTorch weights by unsetting offline environment variables
-            print(f"[WARN] Only Flax weights found in cache. Temporarily allowing download to fetch PyTorch weights...")
+            print(f"[WARN] Detected Flax-only weights in cache (error: {error_type}).")
+            print(f"[WARN] Temporarily allowing download to fetch PyTorch weights for {model_id}...")
             # Temporarily disable offline mode
-            hf_offline = os.environ.pop("HF_HUB_OFFLINE", None)
-            transformers_offline = os.environ.pop("TRANSFORMERS_OFFLINE", None)
+            hf_offline_val = os.environ.pop("HF_HUB_OFFLINE", None)
+            transformers_offline_val = os.environ.pop("TRANSFORMERS_OFFLINE", None)
             try:
+                # First try to download PyTorch weights
                 text_encoder = AutoModel.from_pretrained(
                     model_id,
                     local_files_only=False
                 )
+                print(f"[INFO] Successfully downloaded PyTorch weights for {model_id}")
+            except Exception as download_error:
+                download_error_str = str(download_error)
+                # If download also fails with Flax-only error, the model might only have Flax weights
+                if "Flax weights" in download_error_str or "pytorch_model.bin" in download_error_str:
+                    print(f"[WARN] Model {model_id} appears to only have Flax weights on HuggingFace.")
+                    print(f"[WARN] Attempting to convert Flax weights to PyTorch...")
+                    try:
+                        # Try loading with from_flax=True (if supported)
+                        text_encoder = AutoModel.from_pretrained(
+                            model_id,
+                            from_flax=True,
+                            local_files_only=False
+                        )
+                        print(f"[INFO] Successfully converted Flax weights to PyTorch for {model_id}")
+                    except Exception as flax_error:
+                        print(f"[ERROR] Failed to convert Flax weights: {flax_error}")
+                        print(f"[ERROR] Please download PyTorch weights manually or use a different model.")
+                        raise
+                else:
+                    print(f"[ERROR] Failed to download PyTorch weights: {download_error}")
+                    raise
             finally:
                 # Restore offline mode settings
-                if hf_offline is not None:
-                    os.environ["HF_HUB_OFFLINE"] = hf_offline
-                if transformers_offline is not None:
-                    os.environ["TRANSFORMERS_OFFLINE"] = transformers_offline
+                if hf_offline_val is not None:
+                    os.environ["HF_HUB_OFFLINE"] = hf_offline_val
+                if transformers_offline_val is not None:
+                    os.environ["TRANSFORMERS_OFFLINE"] = transformers_offline_val
         else:
+            # Re-raise if it's not the Flax error or if we're not in offline mode
+            print(f"[ERROR] Failed to load model: {error_type}: {error_str}")
             raise
     
     text_encoder.to(device, dtype=dtype)
