@@ -692,12 +692,36 @@ def main():
         return [deepspeed_plugin.zero3_init_context_manager(enable=False)]
 
     # Load VAE - simplified for non-DeepSpeed usage
-    vae = AutoencoderKL.from_pretrained(
-        args.pretrained_model_name_or_path, 
-        subfolder="vae", 
-        revision=args.revision,
-        local_files_only=use_local_files
-    )
+    # Try offline first, but allow download if not cached (similar to BioMedBERT handling)
+    try:
+        vae = AutoencoderKL.from_pretrained(
+            args.pretrained_model_name_or_path, 
+            subfolder="vae", 
+            revision=args.revision,
+            local_files_only=use_local_files
+        )
+    except (OSError, EnvironmentError) as e:
+        if use_local_files and ("not appear to have" in str(e) or "LocalEntryNotFoundError" in str(type(e).__name__)):
+            logger.warning(f"VAE not found in cache. Temporarily allowing download to fetch VAE weights...")
+            # Temporarily disable offline mode
+            hf_offline = os.environ.pop("HF_HUB_OFFLINE", None)
+            transformers_offline = os.environ.pop("TRANSFORMERS_OFFLINE", None)
+            try:
+                vae = AutoencoderKL.from_pretrained(
+                    args.pretrained_model_name_or_path, 
+                    subfolder="vae", 
+                    revision=args.revision,
+                    local_files_only=False
+                )
+                logger.info("Successfully downloaded VAE weights")
+            finally:
+                # Restore offline mode settings
+                if hf_offline is not None:
+                    os.environ["HF_HUB_OFFLINE"] = hf_offline
+                if transformers_offline is not None:
+                    os.environ["TRANSFORMERS_OFFLINE"] = transformers_offline
+        else:
+            raise
 
     # Load UNet: standard UNet2DConditionModel (custom MedicalUNet removed)
     if args.use_custom_unet:
@@ -706,12 +730,36 @@ def main():
             "Use the default UNet2DConditionModel with --use_skip_attention_gates instead."
         )
     
-    unet = UNet2DConditionModel.from_pretrained(
-        args.pretrained_model_name_or_path, 
-        subfolder="unet", 
-        revision=args.non_ema_revision,
-        local_files_only=use_local_files
-    )
+    # Try offline first, but allow download if not cached
+    try:
+        unet = UNet2DConditionModel.from_pretrained(
+            args.pretrained_model_name_or_path, 
+            subfolder="unet", 
+            revision=args.non_ema_revision,
+            local_files_only=use_local_files
+        )
+    except (OSError, EnvironmentError) as e:
+        if use_local_files and ("not appear to have" in str(e) or "LocalEntryNotFoundError" in str(type(e).__name__)):
+            logger.warning(f"UNet not found in cache. Temporarily allowing download to fetch UNet weights...")
+            # Temporarily disable offline mode
+            hf_offline = os.environ.pop("HF_HUB_OFFLINE", None)
+            transformers_offline = os.environ.pop("TRANSFORMERS_OFFLINE", None)
+            try:
+                unet = UNet2DConditionModel.from_pretrained(
+                    args.pretrained_model_name_or_path, 
+                    subfolder="unet", 
+                    revision=args.non_ema_revision,
+                    local_files_only=False
+                )
+                logger.info("Successfully downloaded UNet weights")
+            finally:
+                # Restore offline mode settings
+                if hf_offline is not None:
+                    os.environ["HF_HUB_OFFLINE"] = hf_offline
+                if transformers_offline is not None:
+                    os.environ["TRANSFORMERS_OFFLINE"] = transformers_offline
+        else:
+            raise
 
     # Optionally augment the default Stable Diffusion UNet with attention-gated
     # skip connections as suggested in the medical imaging literature
