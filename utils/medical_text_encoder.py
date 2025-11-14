@@ -45,14 +45,25 @@ def load_med_encoder(model_id: str = DEFAULT_MED_ENCODER,
             local_files_only=local_files_only
         )
     except (OSError, EnvironmentError) as e:
-        if "Flax weights" in str(e) and local_files_only:
+        error_str = str(e)
+        if ("Flax weights" in error_str or "pytorch_model.bin" in error_str) and local_files_only:
             # If offline mode but only Flax weights cached, temporarily allow download
-            # to fetch PyTorch weights
+            # to fetch PyTorch weights by unsetting offline environment variables
             print(f"[WARN] Only Flax weights found in cache. Temporarily allowing download to fetch PyTorch weights...")
-            text_encoder = AutoModel.from_pretrained(
-                model_id,
-                local_files_only=False
-            )
+            # Temporarily disable offline mode
+            hf_offline = os.environ.pop("HF_HUB_OFFLINE", None)
+            transformers_offline = os.environ.pop("TRANSFORMERS_OFFLINE", None)
+            try:
+                text_encoder = AutoModel.from_pretrained(
+                    model_id,
+                    local_files_only=False
+                )
+            finally:
+                # Restore offline mode settings
+                if hf_offline is not None:
+                    os.environ["HF_HUB_OFFLINE"] = hf_offline
+                if transformers_offline is not None:
+                    os.environ["TRANSFORMERS_OFFLINE"] = transformers_offline
         else:
             raise
     
