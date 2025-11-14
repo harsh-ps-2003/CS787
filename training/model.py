@@ -700,13 +700,35 @@ def main():
             revision=args.revision,
             local_files_only=use_local_files
         )
-    except (OSError, EnvironmentError) as e:
-        if use_local_files and ("not appear to have" in str(e) or "LocalEntryNotFoundError" in str(type(e).__name__)):
-            logger.warning(f"VAE not found in cache. Temporarily allowing download to fetch VAE weights...")
-            # Temporarily disable offline mode
+    except Exception as e:
+        error_str = str(e)
+        error_type = type(e).__name__
+        is_cache_error = (
+            "not appear to have" in error_str or 
+            "LocalEntryNotFoundError" in error_type or
+            "OfflineModeIsEnabled" in error_type or
+            "offline mode is enabled" in error_str.lower()
+        )
+        
+        if use_local_files and is_cache_error:
+            logger.warning(f"VAE not found in cache (error: {error_type}). Temporarily allowing download to fetch VAE weights...")
+            # Temporarily disable offline mode - need to unset before the library checks
             hf_offline = os.environ.pop("HF_HUB_OFFLINE", None)
             transformers_offline = os.environ.pop("TRANSFORMERS_OFFLINE", None)
+            # Also try to clear any cached offline state in huggingface_hub
             try:
+                import huggingface_hub
+                # Force re-check by clearing any internal state
+                if hasattr(huggingface_hub, '_is_offline_mode'):
+                    huggingface_hub._is_offline_mode = False
+                # Also try to reset the offline mode in the constants
+                if hasattr(huggingface_hub.constants, 'HF_HUB_OFFLINE'):
+                    huggingface_hub.constants.HF_HUB_OFFLINE = False
+            except:
+                pass
+            
+            try:
+                # Retry with offline mode disabled
                 vae = AutoencoderKL.from_pretrained(
                     args.pretrained_model_name_or_path, 
                     subfolder="vae", 
@@ -714,6 +736,27 @@ def main():
                     local_files_only=False
                 )
                 logger.info("Successfully downloaded VAE weights")
+            except Exception as download_error:
+                download_error_str = str(download_error)
+                error_type_name = type(download_error).__name__
+                if "OfflineModeIsEnabled" in error_type_name or "offline mode" in download_error_str.lower():
+                    logger.error("=" * 80)
+                    logger.error("ERROR: Cannot download models while HF_HUB_OFFLINE=1 is set.")
+                    logger.error("The huggingface_hub library caches offline mode at import time.")
+                    logger.error("")
+                    logger.error("SOLUTION: Run the training command ONCE without HF_HUB_OFFLINE=1")
+                    logger.error("to download all required models. After that, you can use offline mode.")
+                    logger.error("")
+                    logger.error("Example (first run only):")
+                    logger.error("  CUDA_VISIBLE_DEVICES=1 TRANSFORMERS_OFFLINE=1 ...")
+                    logger.error("  (remove HF_HUB_OFFLINE=1 for the first run)")
+                    logger.error("=" * 80)
+                    raise EnvironmentError(
+                        "Models not cached and offline mode prevents download. "
+                        "Run once without HF_HUB_OFFLINE=1 to download models."
+                    ) from download_error
+                logger.error(f"Failed to download VAE: {download_error}")
+                raise
             finally:
                 # Restore offline mode settings
                 if hf_offline is not None:
@@ -738,12 +781,29 @@ def main():
             revision=args.non_ema_revision,
             local_files_only=use_local_files
         )
-    except (OSError, EnvironmentError) as e:
-        if use_local_files and ("not appear to have" in str(e) or "LocalEntryNotFoundError" in str(type(e).__name__)):
-            logger.warning(f"UNet not found in cache. Temporarily allowing download to fetch UNet weights...")
+    except Exception as e:
+        error_str = str(e)
+        error_type = type(e).__name__
+        is_cache_error = (
+            "not appear to have" in error_str or 
+            "LocalEntryNotFoundError" in error_type or
+            "OfflineModeIsEnabled" in error_type or
+            "offline mode is enabled" in error_str.lower()
+        )
+        
+        if use_local_files and is_cache_error:
+            logger.warning(f"UNet not found in cache (error: {error_type}). Temporarily allowing download to fetch UNet weights...")
             # Temporarily disable offline mode
             hf_offline = os.environ.pop("HF_HUB_OFFLINE", None)
             transformers_offline = os.environ.pop("TRANSFORMERS_OFFLINE", None)
+            # Also try to clear any cached offline state in huggingface_hub
+            try:
+                import huggingface_hub
+                if hasattr(huggingface_hub, '_is_offline_mode'):
+                    huggingface_hub._is_offline_mode = False
+            except:
+                pass
+            
             try:
                 unet = UNet2DConditionModel.from_pretrained(
                     args.pretrained_model_name_or_path, 
@@ -752,6 +812,23 @@ def main():
                     local_files_only=False
                 )
                 logger.info("Successfully downloaded UNet weights")
+            except Exception as download_error:
+                download_error_str = str(download_error)
+                error_type_name = type(download_error).__name__
+                if "OfflineModeIsEnabled" in error_type_name or "offline mode" in download_error_str.lower():
+                    logger.error("=" * 80)
+                    logger.error("ERROR: Cannot download models while HF_HUB_OFFLINE=1 is set.")
+                    logger.error("The huggingface_hub library caches offline mode at import time.")
+                    logger.error("")
+                    logger.error("SOLUTION: Run the training command ONCE without HF_HUB_OFFLINE=1")
+                    logger.error("to download all required models. After that, you can use offline mode.")
+                    logger.error("=" * 80)
+                    raise EnvironmentError(
+                        "Models not cached and offline mode prevents download. "
+                        "Run once without HF_HUB_OFFLINE=1 to download models."
+                    ) from download_error
+                logger.error(f"Failed to download UNet: {download_error}")
+                raise
             finally:
                 # Restore offline mode settings
                 if hf_offline is not None:
