@@ -127,35 +127,36 @@ def add_attention_gates_to_unet(unet: nn.Module, verbose: bool = True) -> nn.Mod
         )
         # Register as a proper submodule so parameters are saved with the UNet
         setattr(block, "skip_attention_gates", gates)
+        
+        # Temporarily skip monkey-patching to avoid interference with gradient checkpointing
+        # The monkey-patch seems to break the wrapped model's expectations after accelerator.prepare()
+        # TODO: Find a way to apply attention gates that doesn't interfere with checkpointing
+        if False:  # Disabled for now
+            orig_forward = block.forward
 
-        orig_forward = block.forward
+            def forward_with_gates(self, hidden_states, temb=None, encoder_hidden_states=None, **kwargs):
+                """Wrapped forward that gates skip features before returning them."""
+                sample, res_samples = orig_forward(
+                    hidden_states, temb=temb, encoder_hidden_states=encoder_hidden_states, **kwargs
+                )
 
-        def forward_with_gates(self, hidden_states, temb=None, encoder_hidden_states=None, **kwargs):
-            """Wrapped forward that gates skip features before returning them."""
-            # Temporarily disable attention gates to debug channel mismatch issues
-            # The gates seem to interfere with gradient checkpointing
-            # TODO: Re-enable once we understand the channel flow better
-            return orig_forward(
-                hidden_states, temb=temb, encoder_hidden_states=encoder_hidden_states, **kwargs
-            )
-            
-            # Original gating code (disabled for now):
-            # sample, res_samples = orig_forward(...)
-            # if not isinstance(res_samples, (list, tuple)):
-            #     return sample, res_samples
-            # if len(res_samples) != len(self.skip_attention_gates):
-            #     return sample, res_samples
-            # gated_res_samples = []
-            # for res, gate in zip(res_samples, self.skip_attention_gates):
-            #     expected_channels = gate.theta.in_channels
-            #     if res.shape[1] != expected_channels:
-            #         gated_res_samples.append(res)
-            #         continue
-            #     gated_res_samples.append(gate(res, res))
-            # return sample, tuple(gated_res_samples)
+                if not isinstance(res_samples, (list, tuple)):
+                    return sample, res_samples
 
-        # Bind the method dynamically so each block keeps its own closure
-        block.forward = types.MethodType(forward_with_gates, block)
+                if len(res_samples) != len(self.skip_attention_gates):
+                    return sample, res_samples
+
+                gated_res_samples = []
+                for res, gate in zip(res_samples, self.skip_attention_gates):
+                    expected_channels = gate.theta.in_channels
+                    if res.shape[1] != expected_channels:
+                        gated_res_samples.append(res)
+                        continue
+                    gated_res_samples.append(gate(res, res))
+
+                return sample, tuple(gated_res_samples)
+
+            block.forward = types.MethodType(forward_with_gates, block)
 
         if verbose:
             print(
