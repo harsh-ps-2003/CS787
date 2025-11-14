@@ -119,11 +119,10 @@ def add_attention_gates_to_unet(unet: nn.Module, verbose: bool = True) -> nn.Mod
         if not skip_channels:
             continue
 
-        # Use deepest feature in the block as the gating signal dimensionality
-        gating_channels = skip_channels[-1]
-
+        # Create gates: each skip connection uses itself as the gating signal
+        # (self-attention style) to avoid channel mismatch issues
         gates = nn.ModuleList(
-            AttentionGate2D(in_channels=in_ch, gating_channels=gating_channels)
+            AttentionGate2D(in_channels=in_ch, gating_channels=in_ch)
             for in_ch in skip_channels
         )
         # Register as a proper submodule so parameters are saved with the UNet
@@ -143,14 +142,10 @@ def add_attention_gates_to_unet(unet: nn.Module, verbose: bool = True) -> nn.Mod
                 return sample, res_samples
 
             gated_res_samples = []
-            g = sample
             for res, gate in zip(res_samples, self.skip_attention_gates):
-                # Resize gating tensor spatially if needed
-                if g.shape[-2:] != res.shape[-2:]:
-                    g_resized = F.interpolate(g, size=res.shape[-2:], mode="bilinear", align_corners=False)
-                else:
-                    g_resized = g
-                gated_res_samples.append(gate(res, g_resized))
+                # Use the skip connection itself as the gating signal (self-attention)
+                # This avoids channel mismatch and still provides spatial attention
+                gated_res_samples.append(gate(res, res))
 
             # Preserve the original return type (tuple)
             return sample, tuple(gated_res_samples)
