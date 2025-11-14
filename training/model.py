@@ -666,13 +666,18 @@ def main():
             ).repo_id
 
     # Load scheduler, tokenizer and models.
-    # Use local_files_only if offline mode is enabled
-    use_local_files = os.environ.get("HF_HUB_OFFLINE", "0") == "1"
+    # Check both HF_HUB_OFFLINE and TRANSFORMERS_OFFLINE (both can enable offline mode)
+    hf_offline = os.environ.get("HF_HUB_OFFLINE", "0") == "1"
+    transformers_offline = os.environ.get("TRANSFORMERS_OFFLINE", "0") == "1"
+    use_local_files = hf_offline or transformers_offline
     
-    # Warn if HF_HUB_OFFLINE is set but we need to download models
+    # Warn if offline mode is set but we need to download models
     if use_local_files and accelerator.is_main_process:
-        logger.warning("HF_HUB_OFFLINE=1 is set. Models will be loaded from cache only.")
-        logger.warning("If models are not cached, remove HF_HUB_OFFLINE=1 from your environment.")
+        if hf_offline:
+            logger.warning("HF_HUB_OFFLINE=1 is set. Models will be loaded from cache only.")
+        if transformers_offline:
+            logger.warning("TRANSFORMERS_OFFLINE=1 is set. This may also enable offline mode.")
+        logger.warning("If models are not cached, unset these environment variables for the first run.")
     noise_scheduler = DDPMScheduler.from_pretrained(
         args.pretrained_model_name_or_path, 
         subfolder="scheduler",
