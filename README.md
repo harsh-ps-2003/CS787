@@ -74,6 +74,43 @@ graph LR
     M --> N
 ```
 
+### Latent Diffusion Model Architecture
+
+The system uses a **Latent Diffusion Model (LDM)** based on Stable Diffusion, operating in compressed latent space for efficient medical image generation.
+
+```mermaid
+graph LR
+    subgraph "Text Conditioning"
+        A[Medical Prompt] --> B[BioMedBERT<br/>Tokenizer]
+        B --> C[Token IDs<br/>256 max]
+        C --> D[BioMedBERT<br/>Encoder]
+        D --> E[Text Embeddings<br/>768-dim (project to 256)]
+    end
+    
+    subgraph "Training: Forward Diffusion"
+        F[Medical Image<br/>256x256x3] --> G[VAE Encoder]
+        G --> H[Latent z0<br/>64x64x4]
+        H --> I[Add Noise<br/>z_t]
+        I --> J[UNet<br/>Denoiser]
+        E --> J
+        J --> K[Predicted<br/>Noise]
+        K --> L[Loss MSE]
+    end
+    
+    subgraph "Inference: Reverse Diffusion"
+        M[Random Noise<br/>z_T] --> N[UNet<br/>Denoiser]
+        E --> N
+        N --> Q[Clean<br/>Latents z0<br/>64x64x4]
+        Q --> R[VAE Decoder]
+        R --> S[Medical Image<br/>256x256x3]
+    end
+    
+    style E fill:#e8f5e8
+    style J fill:#f3e5f5
+    style N fill:#f3e5f5
+    style S fill:#c8e6c9
+```
+
 ### Generation Workflows
 
 #### Baseline Generation Flow
@@ -91,24 +128,28 @@ sequenceDiagram
     O->>U: Generated image
 ```
 
-#### RLHF Generation Flow
+#### RLHF Generation Flow (Two-Stage RL Strategy)
 ```mermaid
 sequenceDiagram
     participant U as User
     participant G as RLHF Generate
     participant SS as Synthetic System
-    participant S as Selector
-    participant P as Policy
+    participant RS as Receive Selector
     participant O as Output
     
+    Note over U,O: Stage 1: Generation and Classification
     U->>G: Text prompt + parameters
-    G->>SS: Generate candidate images
-    SS->>S: Evaluate quality
-    S->>G: Quality scores
-    G->>P: Evaluate prompt alignment
-    P->>G: Alignment scores
-    G->>G: Filter by quality threshold
-    G->>O: Save high-quality images
+    G->>SS: Generate synthetic images
+    SS->>RS: Pass all generated images
+    RS->>RS: Classify images (quality assessment)
+    RS->>G: Classification results
+    
+    Note over U,O: Stage 2: Active Selection
+    G->>SS: Generate synthetic images again
+    SS->>RS: Pass candidate images
+    RS->>RS: Evaluate classification results
+    RS->>RS: Decide which images to pass
+    RS->>O: Selected high-quality images
     O->>U: Quality-filtered images
 ```
 

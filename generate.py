@@ -19,6 +19,7 @@ import argparse
 import sys
 # Custom UNet support
 from utils.unet import MedicalUNet
+from utils.attention_gates import add_attention_gates_to_unet
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Generate medical images using MINIM or pre-trained models")
@@ -92,6 +93,15 @@ def parse_args():
         "--use_custom_unet",
         action="store_true",
         help="Whether to use custom MedicalUNet instead of standard UNet2DConditionModel."
+    )
+    parser.add_argument(
+        "--use_skip_attention_gates",
+        action="store_true",
+        help=(
+            "Enable attention-gated skip connections on the default UNet2DConditionModel "
+            "when loading a fine-tuned checkpoint. This must match the flag used during "
+            "training (`--use_skip_attention_gates`)."
+        ),
     )
     parser.add_argument(
         "--scheduler",
@@ -180,7 +190,21 @@ def load_model(args):
                         print(f"Loaded custom UNet checkpoint from {custom_unet_path}")
                     unet.to(args.device, dtype=torch_dtype)
                 else:
+                    # Default UNet path: we may optionally attach attention-gated skip connections
                     unet = UNet2DConditionModel.from_pretrained(unet_path)
+                    if args.use_skip_attention_gates:
+                        print("Attaching attention-gated skip connections to default UNet2DConditionModel")
+                        add_attention_gates_to_unet(unet, verbose=True)
+                        # Reload weights so that any trained gate parameters (if present) are restored.
+                        weight_bin = os.path.join(unet_path, "diffusion_pytorch_model.bin")
+                        if os.path.exists(weight_bin):
+                            state_dict = torch.load(weight_bin, map_location=args.device)
+                            unet.load_state_dict(state_dict, strict=False)
+                        else:
+                            print(
+                                "[WARN] diffusion_pytorch_model.bin not found under fine-tuned checkpoint; "
+                                "skip attention gates will start from random init."
+                            )
                     unet.to(args.device, dtype=torch_dtype)
                 # Assume BioMedBERT for this fine-tuned checkpoint (naming convention)
                 try:
@@ -249,7 +273,20 @@ def load_model(args):
                     print("Warning: Custom UNet checkpoint not found, using randomly initialized weights")
                 unet.to(args.device, dtype=torch_dtype)
             else:
+                # Default UNet path: optionally enable attention-gated skip connections
                 unet = UNet2DConditionModel.from_pretrained(unet_path)
+                if args.use_skip_attention_gates:
+                    print("Attaching attention-gated skip connections to default UNet2DConditionModel")
+                    add_attention_gates_to_unet(unet, verbose=True)
+                    weight_bin = os.path.join(unet_path, "diffusion_pytorch_model.bin")
+                    if os.path.exists(weight_bin):
+                        state_dict = torch.load(weight_bin, map_location=args.device)
+                        unet.load_state_dict(state_dict, strict=False)
+                    else:
+                        print(
+                            "[WARN] diffusion_pytorch_model.bin not found under fine-tuned checkpoint; "
+                            "skip attention gates will start from random init."
+                        )
                 unet.to(args.device, dtype=torch_dtype)
             
             # Check if this is a BioMedBERT model by looking for text_encoder directory

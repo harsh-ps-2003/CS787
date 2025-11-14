@@ -48,6 +48,8 @@ from tqdm.auto import tqdm
 # --- BioMedBERT text encoder replacement ---
 from utils.medical_text_encoder import load_med_encoder
 from utils.prompt_utils import tokenize_prompts
+# Attention-gated skip connections for the default Stable Diffusion UNet
+from utils.attention_gates import add_attention_gates_to_unet
 # --- Custom UNet for medical images ---
 from utils.unet import MedicalUNet
 
@@ -314,6 +316,15 @@ def parse_args():
         "--use_custom_unet",
         action="store_true",
         help="Whether to use custom MedicalUNet instead of standard UNet2DConditionModel.",
+    )
+    parser.add_argument(
+        "--use_skip_attention_gates",
+        action="store_true",
+        help=(
+            "Enable attention-gated skip connections on the default UNet2DConditionModel. "
+            "This injects lightweight AttentionGate blocks before encoder–decoder skips "
+            "to emphasise clinically relevant structures, following attention U-Net style designs."
+        ),
     )
     parser.add_argument(
         "--revision",
@@ -702,7 +713,10 @@ def main():
             time_embed_dim=320,
             device=accelerator.device
         )
-        unet = unet.to(accelerator.device, dtype=torch.float32 if accelerator.mixed_precision == "no" else torch.float16)
+        unet = unet.to(
+            accelerator.device,
+            dtype=torch.float32 if accelerator.mixed_precision == "no" else torch.float16,
+        )
     else:
         unet = UNet2DConditionModel.from_pretrained(
             args.pretrained_model_name_or_path, 
@@ -710,6 +724,13 @@ def main():
             revision=args.non_ema_revision,
             local_files_only=use_local_files
         )
+
+        # Optionally augment the default Stable Diffusion UNet with attention-gated
+        # skip connections as suggested in the medical imaging literature
+        # (e.g. attention U-Net / TransUNet++ style designs).
+        if args.use_skip_attention_gates:
+            logger.info("Enabling attention-gated skip connections on default UNet2DConditionModel")
+            add_attention_gates_to_unet(unet, verbose=accelerator.is_main_process)
 
     # Freeze vae and text_encoder and set unet to trainable
     vae.requires_grad_(False)
