@@ -141,8 +141,20 @@ def add_attention_gates_to_unet(unet: nn.Module, verbose: bool = True) -> nn.Mod
             if not isinstance(res_samples, (list, tuple)):
                 return sample, res_samples
 
+            # Safety check: ensure we have the right number of gates
+            if len(res_samples) != len(self.skip_attention_gates):
+                # Mismatch - return original without gating to avoid errors
+                return sample, res_samples
+
             gated_res_samples = []
             for res, gate in zip(res_samples, self.skip_attention_gates):
+                # Verify channel dimensions match before applying gate
+                expected_channels = gate.theta.in_channels
+                if res.shape[1] != expected_channels:
+                    # Channel mismatch - skip gating for this tensor
+                    gated_res_samples.append(res)
+                    continue
+                
                 # Use the skip connection itself as the gating signal (self-attention)
                 # This avoids channel mismatch and still provides spatial attention
                 gated_res_samples.append(gate(res, res))

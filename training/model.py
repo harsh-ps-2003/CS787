@@ -864,12 +864,8 @@ def main():
         else:
             raise
 
-    # Optionally augment the default Stable Diffusion UNet with attention-gated
-    # skip connections as suggested in the medical imaging literature
-    # (e.g. attention U-Net / TransUNet++ style designs).
-    if args.use_skip_attention_gates:
-        logger.info("Enabling attention-gated skip connections on default UNet2DConditionModel")
-        add_attention_gates_to_unet(unet, verbose=accelerator.is_main_process)
+    # Note: Attention gates will be applied AFTER accelerator.prepare()
+    # to ensure proper device placement and avoid interference with gradient checkpointing
 
     # Freeze vae and text_encoder and set unet to trainable
     vae.requires_grad_(False)
@@ -1121,6 +1117,11 @@ def main():
     unet, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
         unet, optimizer, train_dataloader, lr_scheduler
     )
+    
+    # Apply attention gates AFTER accelerator.prepare() to ensure proper device placement
+    if args.use_skip_attention_gates:
+        logger.info("Applying attention-gated skip connections after accelerator.prepare()")
+        add_attention_gates_to_unet(unet, verbose=accelerator.is_main_process)
 
     if args.use_ema:
         ema_unet.to(accelerator.device)
