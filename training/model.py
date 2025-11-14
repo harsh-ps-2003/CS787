@@ -1191,7 +1191,9 @@ def main():
         for step, batch in enumerate(train_dataloader):
             with accelerator.accumulate(unet):
                 # Convert images to latent space
-                latents = vae.encode(batch["pixel_values"].to(weight_dtype)).latent_dist.sample()
+                # Move batch to accelerator device and convert to weight_dtype
+                pixel_values = batch["pixel_values"].to(device=accelerator.device, dtype=weight_dtype)
+                latents = vae.encode(pixel_values).latent_dist.sample()
                 latents = latents * vae.config.scaling_factor
 
                 # Sample noise that we'll add to the latents
