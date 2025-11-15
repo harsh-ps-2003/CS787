@@ -75,7 +75,7 @@ DATASET_NAME_MAPPING = {
 
 def save_model_card(
     args,
-    repo_id: str,
+    repo_id,
     images=None,
     repo_folder=None,
 ):
