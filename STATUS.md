@@ -19,14 +19,19 @@ graph TB
     end
 
     subgraph "Training Pipeline"
-        B --> E[Train Model]
-        E --> F[Fine-tuned Stable Diffusion]
-        F --> G[Checkpoints]
+        B --> E1[BioMedBERT Text Encoder]
+        B --> E2[Image Preprocessing]
+        E1 --> E3[Medical Text Embeddings]
+        E2 --> E4[UNet2DConditionModel]
+        E3 --> E4
+        E4 --> E5[Attention-Gated Skip Connections]
+        E5 --> E6[Fine-tuned Stable Diffusion]
+        E6 --> G[Checkpoints]
     end
 
     subgraph "RLHF System"
         D --> H[Policy Model]
-        F --> I[Synthetic System]
+        E6 --> I[Synthetic System]
         I --> J[Generated Images]
         J --> K[Selector Model]
         K --> L[Quality Filtered Images]
@@ -45,7 +50,8 @@ graph TB
         P --> Q[FID, IS, SSIM Scores]
     end
 
-    style E fill:#e1f5fe
+    style E4 fill:#e1f5fe
+    style E5 fill:#ffeb3b
     style I fill:#f3e5f5
     style H fill:#e8f5e8
     style K fill:#fff3e0

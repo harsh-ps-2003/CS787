@@ -20,14 +20,14 @@ graph TB
     end
     
     subgraph "Core Components"
-        E[Synthetic System<br/>Stable Diffusion] --> F[Image Generation]
-        G[Selector Model<br/>Vision Transformer] --> H[Quality Assessment]
-        I[Policy Model<br/>RLHF + CLIP] --> J[Prompt-Image Alignment]
+        E["Synthetic System (SD + Attention Gates)"] --> F[Image Generation]
+        G[Selector Model: ViT] --> H[Quality Assessment]
+        I[Policy Model: RLHF + CLIP] --> J[Prompt-Image Alignment]
     end
     
     subgraph "Training Pipeline"
         K[Stage 1: Joint Training] --> L[Train Selector + Policy]
-        M[Stage 2: Filtered Training] --> N[Use Selector to Filter<br/>Train on High-Quality Data]
+        M[Stage 2: Filtered Training] --> N["Use Selector to Filter<br/>High-Quality Data"]
     end
     
     subgraph "Output"
@@ -55,8 +55,8 @@ graph LR
     end
     
     subgraph "Generation Paths"
-        E[Baseline Generation<br/>Stable Diffusion] --> F[Direct Output]
-        G[RLHF Generation<br/>Policy + Selector] --> H[Quality Filtered Output]
+        E[Baseline: SD + Attention Gates] --> F[Direct Output]
+        G[RLHF: Policy + Selector + Attention Gates] --> H[Quality Filtered Output]
     end
     
     subgraph "Quality Control"
@@ -84,21 +84,21 @@ graph LR
         A[Medical Prompt] --> B[BioMedBERT<br/>Tokenizer]
         B --> C[Token IDs<br/>256 max]
         C --> D[BioMedBERT<br/>Encoder]
-        D --> E[Text Embeddings<br/>768-dim (project to 256)]
+        D --> E["Text Embeddings<br/>768-dim (project to 256)"]
     end
     
     subgraph "Training: Forward Diffusion"
         F[Medical Image<br/>256x256x3] --> G[VAE Encoder]
         G --> H[Latent z0<br/>64x64x4]
         H --> I[Add Noise<br/>z_t]
-        I --> J[UNet<br/>Denoiser]
+        I --> J["UNet2DConditionModel<br/>(Attention-Gated Skip Connections)"]
         E --> J
         J --> K[Predicted<br/>Noise]
         K --> L[Loss MSE]
     end
     
     subgraph "Inference: Reverse Diffusion"
-        M[Random Noise<br/>z_T] --> N[UNet<br/>Denoiser]
+        M[Random Noise<br/>z_T] --> N["UNet2DConditionModel<br/>(Attention-Gated Skip Connections)"]
         E --> N
         N --> Q[Clean<br/>Latents z0<br/>64x64x4]
         Q --> R[VAE Decoder]
@@ -118,7 +118,7 @@ graph LR
 sequenceDiagram
     participant U as User
     participant G as Generate.py
-    participant SD as Stable Diffusion
+    participant SD as "Stable Diffusion (Attention Gates)"
     participant O as Output
     
     U->>G: Text prompt + parameters
@@ -133,7 +133,7 @@ sequenceDiagram
 sequenceDiagram
     participant U as User
     participant G as RLHF Generate
-    participant SS as Synthetic System
+    participant SS as "Synthetic System (Attention Gates)"
     participant RS as Receive Selector
     participant O as Output
     
@@ -416,6 +416,7 @@ UV_NO_SYNC=1 uv run python main.py
 
 #### 1. Synthetic System
 - **Base Model**: Stable Diffusion v1.5 with medical domain adaptation
+- **Architecture**: UNet2DConditionModel with attention-gated skip connections for enhanced anatomical feature preservation
 - **Training Mode**: Optional fine-tuning during RLHF (disabled by default)
 - **Image Generation**: 256x256 resolution, configurable inference steps and guidance scale
 
@@ -553,6 +554,8 @@ generated_rlhf/
 ### Fundus training recipes
 
 The following sequence reproduces our best results on a single 12 GB TITAN Xp while staying close to the MINIM training philosophy. It uses gradient accumulation, cosine LR with warmup, min‑SNR weighting, and staged up‑resolution.
+
+**Note**: Attention-gated skip connections can be enabled with `--use_skip_attention_gates` for enhanced anatomical feature preservation. Add this flag to any training command to enable attention gates on the UNet skip connections.
 
 #### Phase 0 — Train at 256px (from scratch, 5k steps)
 ```bash
